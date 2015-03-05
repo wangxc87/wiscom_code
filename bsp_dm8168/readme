@@ -1,0 +1,52 @@
+BSP层接口说明：
+
+一、目录层次
+.
+├── demo
+│   ├── bsp_demo.c
+│   ├── cpld_control_reset_test.c
+│   ├── cpld_control_test.c
+│   ├── Makefile
+│   ├── phydev_test.c
+│   ├── read_mac.c
+│   └── sensorAlarm_test.c
+├── inc
+│   ├── bsp_cpld_control.h
+│   ├── bsp.h
+│   ├── bsp_phydev.h
+│   ├── bsp_std.h
+│   ├── i2c_wr.h
+│   └── sensorAlarm_control.h
+├── Makefile
+├── readme
+└── src
+    ├── bsp.c
+    ├── cpld_control.c
+    ├── eeprom.c
+    ├── i2c_wr.c
+    ├── Makefile
+    ├── phydev.c
+    ├── sensorAlarm_control.c
+    ├── temperature.c
+    └── wdt.c
+
+
+二、文件说明
+1、demo文件夹
+	对应的文件名为相应的头文件的接口测试程序，如cpld_control_test.c 对应测试bsp_cpld_control.h中定义的接口函数；
+2、inc文件夹
+	该文件夹下定义相应的BSP层的函数接口，文件名称前缀为bsp开头的头文件为BSP层向上提供的接口定义头文件，供外部调用；非bsp前缀命名的头文件为BSP内部定义的接口，仅BSP层内部使用，外部不可使用；
+      BSP层的函数接口在相应的头文件有相关定义说明，请查看，目前BSP层对外提供接口的头文件有：
+	bsp.h
+	bsp_cpld_control.h
+	bsp_phydev.h
+3、src文件夹
+	BSP层函数接口实现原型；
+
+三、BSP接口使用
+  1、库文件
+	接口采用动态库的方式，编译出来的动态库为src/libbsp4dm8168.so。使用将该动态库时，将该文件拷贝到文件系统路径/usr/lib/下；
+  2、头文件
+       调用BSP层接口时，仅需调加bsp.h一个头文件即可，其他头文件已被包含在该bsp.h文件中。
+
+

@@ -1,0 +1,32 @@
+程序中使用open函数以读方式打开一个名为fifo1的FIFO管道，并循环读出管道的数据，这里使用while循环的作用就是确保数据可以全部读出，因为在读FIFO管道数据时，默认的是一次性读取PIPE_BUF个字节，当管道中数据多于PIPE_BUF个字节时，一次性读出PIPE_BUF-1个字节，然后read函数返回，再打印数据到标准输出。
+（2）在shell中分别编译上述两个程序如下：
+$gcc write_fifo.c–o write_fifo
+$gcc read_fifo.c–o read_fifo
+（3）在shell中使用mkfifo创建程序中将要用到的FIFO管道。
+$mkfifo –m 666 fifo1
+（4）打开两个shell分别运行程序write_fifo 和程序 read_fifo。一个shell中输入如下：
+$./write_fifo
+i am 3708
+Send msg:write_fifo 3708 sends Thu Apr 17 18:26:01 2008
+Send msg:write_fifo 3708 sends Thu Apr 17 18:26:04 2008
+Send msg:write_fifo 3708 sends Thu Apr 17 18:26:07 2008
+Send msg:write_fifo 3708 sends Thu Apr 17 18:26:10 2008
+Send msg:write_fifo 3708 sends Thu Apr 17 18:26:13 2008
+Send msg:write_fifo 3708 sends Thu Apr 17 18:26:16 2008
+Send msg:write_fifo 3708 sends Thu Apr 17 18:26:19 2008
+Send msg:write_fifo 3708 sends Thu Apr 17 18:26:22 2008
+Send msg:write_fifo 3708 sends Thu Apr 17 18:26:25 2008
+Send msg:write_fifo 3708 sends Thu Apr 17 18:26:28 2008
+另一个shell中输入如下：
+$./read_fifo
+read_fifo read: write_fifo 3708 sends Thu Apr 17 18:26:01 2008
+read_fifo read: write_fifo 3708 sends Thu Apr 17 18:26:04 2008
+read_fifo read: write_fifo 3708 sends Thu Apr 17 18:26:07 2008
+read_fifo read: write_fifo 3708 sends Thu Apr 17 18:26:10 2008
+read_fifo read: write_fifo 3708 sends Thu Apr 17 18:26:13 2008
+read_fifo read: write_fifo 3708 sends Thu Apr 17 18:26:16 2008
+read_fifo read: write_fifo 3708 sends Thu Apr 17 18:26:19 2008
+read_fifo read: write_fifo 3708 sends Thu Apr 17 18:26:22 2008
+read_fifo read: write_fifo 3708 sends Thu Apr 17 18:26:25 2008
+read_fifo read: write_fifo 3708 sends Thu Apr 17 18:26:28 2008
+上述例子可以扩展成客户端与服务器通信的实例，write_fifo的作用类似于客户端，可以打开多个客户端向一个服务器发送请求信息，read_fifo类似于服务器，它适时监控着FIFO的读出端，当有数据时，读出并进行处理，但是有一个关键的问题是，每一个客户端必须预先知道服务器提供的FIFO接口，

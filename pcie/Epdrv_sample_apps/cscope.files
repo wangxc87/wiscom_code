@@ -1,0 +1,11 @@
+application/ti81xx_ep_app.c
+application/ti81xx_rc_app.c
+include/debug_msg.h
+include/ti81xx_ep_lib.h
+include/ti81xx_mgmt_lib.h
+include/ti81xx_pci_info.h
+include/ti81xx_trans.h
+lib/ti81xx_ep_lib.c
+lib/ti81xx_mgmt_lib.c
+lib/ti81xx_pci_info.c
+lib/ti81xx_trans.c

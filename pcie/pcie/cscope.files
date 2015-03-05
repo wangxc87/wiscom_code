@@ -1,0 +1,13 @@
+demo/pcie_ep_test.c
+demo/pcie_rc_test.c
+src/debug_msg.h
+src/pcie_common.h
+src/pcie_std.h
+src/ti81xx_ep.c
+src/ti81xx_ep.h
+src/ti81xx_ep_lib.c
+src/ti81xx_ep_lib.h
+src/ti81xx_pci_info.c
+src/ti81xx_pci_info.h
+src/ti81xx_rc_lib.c
+src/ti81xx_rc_lib.h

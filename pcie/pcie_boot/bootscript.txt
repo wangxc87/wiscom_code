@@ -1,0 +1,10 @@
+# Ramdisk boot (default)
+setenv bootargs 'console=ttyO2,115200n8 root=/dev/ram initrd=0x81000000,16M rw mem=128M'
+
+# Add some delay to allow ramdisk to be loaded from RC
+sleep 1
+
+# NFS Boot example
+# setenv bootargs 'console=ttyO2,115200n8 root=/dev/nfs nfsroot=172.24.190.72:/srv/nfs/ti81xx,nolock rw mem=128M ip=dhcp'
+
+bootm 0x80900000

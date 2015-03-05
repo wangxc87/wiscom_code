@@ -1,0 +1,294 @@
+#include "capture.h"
+#include "preview.h"
+#include "resizer.h"
+#include "display.h"
+
+#define APP_NUM_BUFS 3
+int main(void)
+{
+  struct buf_info capture_buf[APP_NUM_BUFS];
+  int capt_fd,prev_fd,rsz_fd;
+  struct capt_std_params capt_param;
+  int std_index = 0;
+  unsigned long prev_bufin_size;
+  int buf_size = ALIGN((1920*1080*2), 4096);
+  int image_width,image_height;
+  //  int user_mode = IMP_MODE_SINGLE_SHOT;
+  int user_mode = IMP_MODE_CONTINUOUS;
+  int ret;
+  
+  memcpy(&capt_param,&mt9p031_std_params[std_index],sizeof(struct capt_std_params));
+  image_width  = capt_param.image_width;
+  image_height = capt_param.image_height;
+  printf("Setting Foramt:std_index  %d,image_width  %d,iamge_height %d\n",std_index,image_width,image_height);
+  
+  printf("\n------Resizer Init----\n");
+  rsz_fd = resizer_open();
+  if(rsz_fd <= -1)
+  {
+    printf("Error:Resizer Open...\n");
+    return 0;
+  }
+  struct rsz_single_shot_config rsz_ss_config;
+  int out1_width,out1_height,output1_size;
+  out1_width = image_width;
+  out1_height =image_height;
+  memset(&rsz_ss_config,0,sizeof(struct rsz_single_shot_config));
+
+  int out_format =0;
+  if (!out_format) {//UYVY
+    out1_width += 15;
+    out1_width &= (~15);
+    output1_size = out1_width * out1_height * 2;
+    rsz_ss_config.output1.pix_fmt = IPIPE_UYVY;
+  } else {//NV12
+    out1_width += 31;
+    out1_width &= (~31);
+    output1_size = out1_width * out1_height * 1.5;
+    rsz_ss_config.output1.pix_fmt = IPIPE_YUV420SP;
+  }
+  /*
+  rsz_ss_config.output1.enable  = 1;
+  rsz_ss_config.output1.width   = out1_width;
+  rsz_ss_config.output1.height  = out1_height;
+  
+  if(resizer_config(rsz_fd,user_mode,&rsz_ss_config,1)<= -1)
+  {
+    printf("Error:Resizer Config...\n");
+    return 0;
+  }
+
+  */
+  struct rsz_continuous_config rsz_cont_config;
+  rsz_cont_config.output1.enable = 1;
+  
+  if(resizer_config(rsz_fd,user_mode,&rsz_cont_config,1)<= -1)
+  {
+    printf("Error:Resizer Config...\n");
+    return 0;
+  }
+
+
+
+  printf("\n------Preview Init----\n");
+  prev_fd = preview_open();
+  if(prev_fd <= -1)
+  {
+    printf("Error:Preview Open...\n");
+    return 0;
+  }
+  prev_bufin_size = image_width*image_height*2;
+  struct prev_single_shot_config prev_ss_config;
+  struct prev_continuous_config prev_cont_config;
+  
+  struct imp_buffer buf_in,buf_out1;
+  memset(&prev_ss_config,0,sizeof(struct prev_single_shot_config));
+  /*prev_ss_config.input.image_width  = image_width;
+  prev_ss_config.input.image_height = image_height;
+  prev_ss_config.input.pix_fmt      = IPIPE_BAYER;//IPIPE_BAYER_12BIT_PACK;*/
+  if(preview_config(prev_fd,user_mode,&prev_cont_config,1)<=-1)
+  {
+    printf("Error:Preview Config...\n");
+    return 0;
+  }
+  /*  struct imp_reqbufs req_buf;
+  req_buf.buf_type = IMP_BUF_IN;
+  req_buf.size     = prev_bufin_size;
+  req_buf.count    = 1;
+  if(preview_querybuf(prev_fd,req_buf,&buf_in)<=-1)
+  {
+    printf("Error:Preview QueryBuf IN...\n");
+    return 0;
+  }
+
+  req_buf.buf_type = IMP_BUF_OUT1;
+  req_buf.size     = output1_size;
+  req_buf.count    = 1;
+  if(preview_querybuf(prev_fd,req_buf,&buf_out1)<=-1)
+  {
+    printf("Error:Preview Querybuf OUT1...\n");
+    return 0;
+    }*/
+
+
+
+
+  printf("\n---------Init Capture-------\n");
+  capt_fd = capture_open();
+  if(capt_fd <=-1)
+  {
+    printf("Error:Caputre DEV Open\n ");
+    return 0;
+  }
+  if(allocate_user_buffers(capture_buf,APP_NUM_BUFS,buf_size)<=-1)
+  {
+    printf("Error:allocate buffers\n");
+    return 0;
+  }
+  
+  if(init_camera_capture(capt_fd,capt_param)<=-1)
+  {
+    printf("Error:Init Camera..\n");
+    return 0;
+  }
+  if(start_capture_streaming(capt_fd,capture_buf,APP_NUM_BUFS) <= -1)
+  {
+    printf("Error:Start Capture Streaming...\n");
+    goto  clean;
+  }
+
+
+
+  printf("\n-----Init Display-----\n");
+  struct buf_info display_buf[APP_NUM_BUFS];
+  int display_fd;
+  if(allocate_user_buffers(display_buf,APP_NUM_BUFS,buf_size)<=-1)
+  {
+    printf("Error:DIisplay allocate buffers\n");
+    return 0;
+  }
+  display_fd = display_open(0);
+  if(display_fd <= -1)
+  {
+    printf("Error:Display Open...\n");
+    return 0;
+  }
+  struct display_param display_param;
+  display_param.width = image_width;
+  display_param.height = image_height;
+  if(init_display_device(display_fd,display_param)<=-1)
+  {
+    printf("Error:Display Init...\n");
+    return 0;
+  }
+  if(start_display_streaming(display_fd,display_buf,APP_NUM_BUFS) <=-1)
+  {
+    printf("Error:Display start streaming...\n");
+    return 0;
+  }
+  struct v4l2_buffer cap_buf, disp_buf;
+  unsigned char *input_buffer,*output_buffer;
+  struct imp_convert convert;
+
+  /*  input_buffer = mmap(NULL,buf_in.size, 
+                      PROT_READ|PROT_WRITE, 
+                      MAP_SHARED, 
+                      prev_fd, 
+                      buf_in.offset);
+	
+  if (input_buffer == MAP_FAILED) {
+    perror("Error in MMAP\n");
+    //    goto preview_clean;
+    return 0;
+  }
+
+  output_buffer = mmap(NULL,buf_out1.size, 
+                       PROT_READ|PROT_WRITE, 
+                       MAP_SHARED, 
+                       prev_fd, 
+                       buf_out1.offset);
+  printf("output offset = 0x%x\n", buf_out1.offset);
+  if (output_buffer == MAP_FAILED) {
+    perror("Error in MMAP\n");
+    goto clean;
+    }*/
+  printf("\n----Device Init Over...\n");
+  int n= 0;
+  unsigned long temp;
+  
+  while(1)
+  {
+  try1:
+    disp_buf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+    disp_buf.memory = V4L2_MEMORY_USERPTR;
+    ret =  ioctl(display_fd, VIDIOC_DQBUF, &disp_buf);
+    if (ret < 0) {
+      if (errno == EAGAIN) {
+        goto try1;
+        }
+      printf("VIDIOC_DQBUF for display failed\n");
+      
+      //return ret;
+    }
+    
+    cap_buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    cap_buf.memory = V4L2_MEMORY_USERPTR;
+  try2:
+    ret = ioctl(capt_fd, VIDIOC_DQBUF, &cap_buf);
+    if (ret < 0) {
+           if (errno == EAGAIN) {
+        goto try2;
+        }
+      printf("VIDIOC_DQBUF for capture failed\n");
+      //return ret;
+    }
+
+    /*
+	bzero(&convert,sizeof(convert));
+
+	memcpy(input_buffer,(unsigned char *)cap_buf.m.userptr,buf_in.size);
+	convert.in_buff.buf_type = IMP_BUF_IN;
+	convert.in_buff.index = 0;
+	convert.in_buff.offset = buf_in.offset;
+	convert.in_buff.size = buf_in.size;
+	convert.out_buff1.buf_type = IMP_BUF_OUT1;
+	convert.out_buff1.index = 0;
+	convert.out_buff1.offset = buf_out1.offset;
+	convert.out_buff1.size = buf_out1.size;
+	if (second_out_en) {
+		convert.out_buff2.buf_type = IMP_BUF_OUT2;
+		convert.out_buff2.index = 0;
+		convert.out_buff2.offset = buf_out2[0].offset;
+		convert.out_buff2.size = buf_out2[0].size;
+        }
+	if (ioctl(prev_fd, PREV_PREVIEW, &convert) < 0) {
+		perror("Error in doing preview\n");
+		goto clean;
+	}
+*/    
+    
+    /*    if(memcpy((char *)display_buf[0].user_addr,output_buffer,buf_out1.size)==NULL)
+          printf("Error:Display MEMCPY...\n");*/
+        memcpy((char *)disp_buf.m.userptr,(char *)cap_buf.m.userptr,buf_size);
+    /*    temp = cap_buf.m.userptr;
+    cap_buf.m.userptr = disp_buf.m.userptr;
+    disp_buf.m.userptr = temp;
+    */
+    
+    ret = ioctl(capt_fd, VIDIOC_QBUF, &cap_buf);
+    if (ret < 0) {
+      perror("VIDIOC_QBUF for capture failed\n");
+      return 0;
+
+    }
+
+    ret = ioctl(display_fd, VIDIOC_QBUF, &disp_buf);
+    if (ret < 0) {
+      perror("VIDIOC_QBUF for display failed\n");
+      return 0;
+    }
+
+    if(0 != n%30)
+      n++;
+    else 
+    {
+      printf("Picture%d...\n",n);
+      n = 0;
+    }
+    
+  }
+  
+  
+  
+         
+ clean:
+  cleanup_capture(capt_fd);
+  preview_clean:
+  if (!close(prev_fd))
+    printf("previewer closed successfully\n");
+  else
+    printf("Error in closing previewer\n");
+
+}
+
+ 

@@ -1,0 +1,1 @@
+cmd_/home/wxc/dsp/myproject/sensor_alarm/sensor_alarm.ko := arm-arago-linux-gnueabi-ld -EL -r  -T /home/wxc/dsp/DVRRDK_04.01.00.02/ti_tools/linux_lsp/kernel/linux-dvr-rdk/scripts/module-common.lds --build-id  -o /home/wxc/dsp/myproject/sensor_alarm/sensor_alarm.ko /home/wxc/dsp/myproject/sensor_alarm/sensor_alarm.o /home/wxc/dsp/myproject/sensor_alarm/sensor_alarm.mod.o

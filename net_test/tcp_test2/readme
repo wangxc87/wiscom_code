@@ -1,0 +1,3 @@
+运行make后会产生两个程序server(服务器端)和client(客户端) 先运行./server portnumber&  
+        (portnumber随便取一个大于1204且不在/etc/services中出现的号码 就用8888好了),
+        然后运行  ./client localhost 8888 看看有什么结果. (你也可以用telnet和netstat试一试.) 

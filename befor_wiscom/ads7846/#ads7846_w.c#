@@ -1,0 +1,246 @@
+#include <linux/types.h>
+#include <linux/hwmon.h>
+#include <linux/init.h>
+#include <linux/err.h>
+#include <linux/sched.h>
+#include <linux/delay.h>
+#include <linux/input.h>
+#include <linux/interrupt.h>
+#include <linux/slab.h>
+#include <linux/gpio.h>
+#include <linux/spi/spi.h>
+#include <linux/spi/ads7846.h>
+#include <linux/regulator/consumer.h>
+#include <asm/irq.h>
+
+
+
+
+
+
+static int __devinit ads7846_probe(struct spi_device *spi)
+{
+	struct ads7846 *ts;
+
+
+	struct ads7846_platform_data *pdata = spi->dev.platform_data;
+	unsigned long irq_flags;
+	int err;
+
+	if (!spi->irq) {
+		dev_dbg(&spi->dev, "no IRQ?\n");
+		return -ENODEV;
+	}
+
+	if (!pdata) {
+		dev_dbg(&spi->dev, "no platform data?\n");
+		return -ENODEV;
+	}
+
+	/* don't exceed max specified sample rate */
+	if (spi->max_speed_hz > (125000 * SAMPLE_BITS)) {
+		dev_dbg(&spi->dev, "f(sample) %d KHz?\n",
+				(spi->max_speed_hz/SAMPLE_BITS)/1000);
+		return -EINVAL;
+	}
+
+	/* We'd set TX word size 8 bits and RX word size to 13 bits ... except
+	 * that even if the hardware can do that, the SPI controller driver
+	 * may not.  So we stick to very-portable 8 bit words, both RX and TX.
+	 */
+	spi->bits_per_word = 8;
+	spi->mode = SPI_MODE_0;
+	err = spi_setup(spi);
+	if (err < 0)
+		return err;
+
+	ts = kzalloc(sizeof(struct ads7846), GFP_KERNEL);
+	packet = kzalloc(sizeof(struct ads7846_packet), GFP_KERNEL);
+	input_dev = input_allocate_device();
+	if (!ts || !packet || !input_dev) {
+		err = -ENOMEM;
+		goto err_free_mem;
+	}
+
+	dev_set_drvdata(&spi->dev, ts);
+
+	ts->packet = packet;
+	ts->spi = spi;
+	ts->input = input_dev;
+	ts->vref_mv = pdata->vref_mv;
+	ts->swap_xy = pdata->swap_xy;
+
+	mutex_init(&ts->lock);
+	init_waitqueue_head(&ts->wait);
+
+	ts->model = pdata->model ? : 7846;
+	ts->vref_delay_usecs = pdata->vref_delay_usecs ? : 100;
+	ts->x_plate_ohms = pdata->x_plate_ohms ? : 400;
+	ts->pressure_max = pdata->pressure_max ? : ~0;
+
+	if (pdata->filter != NULL) {
+		if (pdata->filter_init != NULL) {
+			err = pdata->filter_init(pdata, &ts->filter_data);
+			if (err < 0)
+				goto err_free_mem;
+		}
+		ts->filter = pdata->filter;
+		ts->filter_cleanup = pdata->filter_cleanup;
+	} else if (pdata->debounce_max) {
+		ts->debounce_max = pdata->debounce_max;
+		if (ts->debounce_max < 2)
+			ts->debounce_max = 2;
+		ts->debounce_tol = pdata->debounce_tol;
+		ts->debounce_rep = pdata->debounce_rep;
+		ts->filter = ads7846_debounce_filter;
+		ts->filter_data = ts;
+	} else {
+		ts->filter = ads7846_no_filter;
+	}
+
+	err = ads7846_setup_pendown(spi, ts);
+	if (err)
+		goto err_cleanup_filter;
+
+	if (pdata->penirq_recheck_delay_usecs)
+		ts->penirq_recheck_delay_usecs =
+				pdata->penirq_recheck_delay_usecs;
+
+	ts->wait_for_sync = pdata->wait_for_sync ? : null_wait_for_sync;
+
+	snprintf(ts->phys, sizeof(ts->phys), "%s/input0", dev_name(&spi->dev));
+	snprintf(ts->name, sizeof(ts->name), "ADS%d Touchscreen", ts->model);
+
+	input_dev->name = ts->name;
+	input_dev->phys = ts->phys;
+	input_dev->dev.parent = &spi->dev;
+
+	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
+	input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
+	input_set_abs_params(input_dev, ABS_X,
+			pdata->x_min ? : 0,
+			pdata->x_max ? : MAX_12BIT,
+			0, 0);
+	input_set_abs_params(input_dev, ABS_Y,
+			pdata->y_min ? : 0,
+			pdata->y_max ? : MAX_12BIT,
+			0, 0);
+	input_set_abs_params(input_dev, ABS_PRESSURE,
+			pdata->pressure_min, pdata->pressure_max, 0, 0);
+
+	ads7846_setup_spi_msg(ts, pdata);
+
+	ts->reg = regulator_get(&spi->dev, "vcc");
+	if (IS_ERR(ts->reg)) {
+		err = PTR_ERR(ts->reg);
+		dev_err(&spi->dev, "unable to get regulator: %d\n", err);
+		goto err_free_gpio;
+	}
+
+	err = regulator_enable(ts->reg);
+	if (err) {
+		dev_err(&spi->dev, "unable to enable regulator: %d\n", err);
+		goto err_put_regulator;
+	}
+
+	irq_flags = pdata->irq_flags ? : IRQF_TRIGGER_FALLING;
+	irq_flags |= IRQF_ONESHOT;
+
+	err = request_threaded_irq(spi->irq, ads7846_hard_irq, ads7846_irq,
+				   irq_flags, spi->dev.driver->name, ts);
+	if (err && !pdata->irq_flags) {
+		dev_info(&spi->dev,
+			"trying pin change workaround on irq %d\n", spi->irq);
+		irq_flags |= IRQF_TRIGGER_RISING;
+		err = request_threaded_irq(spi->irq,
+				  ads7846_hard_irq, ads7846_irq,
+				  irq_flags, spi->dev.driver->name, ts);
+	}
+
+	if (err) {
+		dev_dbg(&spi->dev, "irq %d busy?\n", spi->irq);
+		goto err_disable_regulator;
+	}
+
+	err = ads784x_hwmon_register(spi, ts);
+	if (err)
+		goto err_free_irq;
+
+	dev_info(&spi->dev, "touchscreen, irq %d\n", spi->irq);
+
+	/*
+	 * Take a first sample, leaving nPENIRQ active and vREF off; avoid
+	 * the touchscreen, in case it's not connected.
+	 */
+	if (ts->model == 7845)
+		ads7845_read12_ser(&spi->dev, PWRDOWN);
+	else
+		(void) ads7846_read12_ser(&spi->dev,
+				READ_12BIT_SER(vaux) | ADS_PD10_ALL_ON);
+
+	err = sysfs_create_group(&spi->dev.kobj, &ads784x_attr_group);
+	if (err)
+		goto err_remove_hwmon;
+
+	err = input_register_device(input_dev);
+	if (err)
+		goto err_remove_attr_group;
+
+	device_init_wakeup(&spi->dev, pdata->wakeup);
+
+	return 0;
+
+ err_remove_attr_group:
+	sysfs_remove_group(&spi->dev.kobj, &ads784x_attr_group);
+ err_remove_hwmon:
+	ads784x_hwmon_unregister(spi, ts);
+ err_free_irq:
+	free_irq(spi->irq, ts);
+ err_disable_regulator:
+	regulator_disable(ts->reg);
+ err_put_regulator:
+	regulator_put(ts->reg);
+ err_free_gpio:
+	if (ts->gpio_pendown != -1)
+		gpio_free(ts->gpio_pendown);
+ err_cleanup_filter:
+	if (ts->filter_cleanup)
+		ts->filter_cleanup(ts->filter_data);
+ err_free_mem:
+	input_free_device(input_dev);
+	kfree(packet);
+	kfree(ts);
+	return err;
+}
+
+
+static struct spi_driver ads7846_driver = {
+	.driver = {
+		.name	= "ads7846",
+		.bus	= &spi_bus_type,
+		.owner	= THIS_MODULE,
+	},
+	.probe		= ads7846_probe,
+	.remove		= __devexit_p(ads7846_remove),
+	.suspend	= ads7846_suspend,
+	.resume		= ads7846_resume,
+};
+
+static int __init ads7846_init(void)
+{
+	return spi_register_driver(&ads7846_driver);
+}
+module_init(ads7846_init);
+
+static void __exit ads7846_exit(void)
+{
+	spi_unregister_driver(&ads7846_driver);
+}
+module_exit(ads7846_exit);
+
+MODULE_DESCRIPTION("ADS7846 TouchScreen Driver");
+MODULE_LICENSE("GPL");
+MODULE_ALIAS("spi:ads7846");
+
+
+

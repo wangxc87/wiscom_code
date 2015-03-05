@@ -1,0 +1,79 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
+
+#include "bsp.h"
+
+
+static BSP_PRINT_LEVEL enPrintLevel = BSP_PRINT_LEVEL_COMMON;
+
+int BSP_PrintSetLevel(const BSP_PRINT_LEVEL enLevel)
+{
+    if ( enLevel >= BSP_PRINT_LEVEL_MAX )
+    {
+        return BSP_ERR_ARG;
+    }
+
+    BSP_Print(BSP_PRINT_LEVEL_IMPORTANT, "Set Print Level %d -> %d\n", enPrintLevel, enLevel);
+
+    enPrintLevel = enLevel;
+
+    return BSP_OK;
+}
+
+BSP_PRINT_LEVEL BSP_PrintGetLevel(void)
+{
+    return enPrintLevel;
+}
+
+int BSP_LocalPrint(const BSP_PRINT_LEVEL enLevel,
+                    const char *ps8File, const unsigned int u32Line,
+                    const char *ps8Format, ...)
+{
+    va_list     argList;
+    unsigned int    u32Len;
+    char s8Msg[BSP_PRINT_MAX_LEN];
+
+    memset(s8Msg, 0, BSP_PRINT_MAX_LEN);
+
+    va_start(argList, ps8Format);
+    u32Len = vsprintf((char*)(s8Msg), (const char*)ps8Format, argList);
+    va_end(argList);
+
+    if ( enLevel > enPrintLevel )   // sunling
+        return BSP_OK;
+
+    // 删除末尾 '\n'
+    s8Msg[u32Len - 1] = 0;
+
+    if ( BSP_PRINT_LEVEL_ERROR != enLevel )
+    {
+        fprintf(stdout, "[%d] %s [%s - %d]\n", enLevel, s8Msg, ps8File, u32Line);
+    }
+    else
+    {
+        fprintf(stdout, "[%d] %s [%d - %s] [%s - %d]\n",
+                    enLevel, s8Msg, errno, strerror(errno), ps8File, u32Line);
+    }
+
+    fflush(stdout);
+    return BSP_OK;
+}
+
+
+int BSP_Init(void)
+{
+    return BSP_OK;
+}
+
+int BSP_Uninit(void)
+{
+    return BSP_OK;
+}
+

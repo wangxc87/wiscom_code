@@ -1,0 +1,2075 @@
+cscope 15 $HOME/dsp/myproject/cpld_misc               0000012116
+	@cpld_misc.c
+
+7 
+	~<löux/öô.h
+>
+
+8 
+	~<löux/moduÀ.h
+>
+
+9 
+	~<löux/fs.h
+>
+
+10 
+	~<löux/i2c.h
+>
+
+11 
+	~<löux/miscdevi˚.h
+>
+
+13 
+	#CPLD_MISC_MINIOR
+ (
+MISC_DYNAMIC_MINOR
+)
+
+	)
+
+14 
+	#DEBUG
+ 1
+
+	)
+
+16 
+	s˝ld_misc
+ {
+
+17 
+i2c_˛õ¡
+ *
+	mi2c_¶ave
+;
+
+20 
+˝ld_misc
+ 
+	ggC∂d_misc
+;
+
+22 
+	$˝ld_misc_›í
+(
+öode
+ *öode, 
+fûe
+ *
+fûp
+)
+
+25 
+	}
+}
+
+27 
+	$˝ld_misc_ªÀa£
+(
+öode
+ *öode, 
+fûe
+ *
+fûp
+)
+
+30 
+	}
+}
+
+32 
+	$˝ld_misc_io˘l
+(
+fûe
+ *
+fûp
+, 
+cmd
+, 
+¨g
+)
+
+35 
+	}
+}
+
+37 
+fûe_›î©i⁄s
+ 
+	g˝ld_misc_f›s
+ = {
+
+38 .
+›í
+ = 
+˝ld_misc_›í
+,
+
+39 .
+	gªÀa£
+ = 
+˝ld_misc_ªÀa£
+,
+
+40 .
+	gu∆ocked_io˘l
+ = 
+˝ld_misc_io˘l
+,
+
+43 
+miscdevi˚
+ 
+	g˝ld_misc_dev
+ = {
+
+44 .
+mö‹
+ = 
+CPLD_MISC_MINIOR
+,
+
+45 .
+	g«me
+ = "cpld_misc",
+
+46 .
+	gf›s
+ = &
+˝ld_misc_f›s
+,
+
+49 
+	$˝ld_misc_¥obe
+(
+i2c_˛õ¡
+ *
+˛õ¡
+, c⁄° 
+i2c_devi˚_id
+ *
+id
+)
+
+51 
+ªt
+;
+
+52 
+gC∂d_misc
+.
+i2c_¶ave
+ = 
+˛õ¡
+;
+
+53 
+	`dev_dbg
+(&
+gC∂d_misc
+.
+i2c_¶ave
+->
+dev
+, "%s...\n", 
+__func__
+);
+
+54 
+ªt
+ = 
+	`misc_ªgi°î
+(&
+˝ld_misc_dev
+);
+
+55  
+ªt
+;
+
+56 
+	}
+}
+
+58 
+	$˝ld_misc_ªmove
+(
+i2c_˛õ¡
+ *
+˛õ¡
+)
+
+60  
+	`misc_dîegi°î
+(&
+˝ld_misc_dev
+);
+
+61 
+	}
+}
+
+63 c⁄° 
+i2c_devi˚_id
+ 
+	g˝ld_misc_id
+[] = {
+
+68 
+i2c_drivî
+ 
+	g˝ld_misc_drivî
+ = {
+
+69 .
+drivî
+ = {
+
+70 .
+«me
+ = "cpld_misc",
+
+72 .
+	g¥obe
+ = 
+˝ld_misc_¥obe
+,
+
+73 .
+	gªmove
+ = 
+˝ld_misc_ªmove
+,
+
+74 .
+	gid_èbÀ
+ = 
+˝ld_misc_id
+,
+
+77 
+__öô
+ 
+	$˝ld_misc_öô
+()
+
+79 
+i2c_bﬂrd_öfo
+ 
+öfo
+ = {
+
+80 
+	`I2C_BOARD_INFO
+("cpld_misc", 0x76),
+
+82 
+i2c_ad≠ãr
+ *
+ad≠ãr
+;
+
+83 
+bus_id
+ = 1;
+
+84 
+ad≠ãr
+ = 
+	`i2c_gë_ad≠ãr
+(
+bus_id
+);
+
+85 if(
+ad≠ãr
+ =
+NULL
+){
+
+86 
+	`¥ötk
+(
+KERN_ERR
+ "**gë i2¯ad≠ã∏%d faûed..\n", 
+bus_id
+);
+
+89 
+	`i2c_√w_devi˚
+(
+ad≠ãr
+, &
+öfo
+);
+
+90  
+	`i2c_add_drivî
+(&
+˝ld_misc_drivî
+);
+
+91 
+	}
+}
+
+93 
+__exô
+ 
+	$˝ld_misc_exô
+()
+
+95 
+	`i2c_dñ_drivî
+(&
+˝ld_misc_drivî
+);
+
+96 
+	}
+}
+
+98 
+MODULE_AUTHOR
+("wiscom");
+
+99 
+MODULE_DESCRIPTION
+("wiscom cpld misc driver");
+
+100 
+MODULE_LICENSE
+("GPL");
+
+102 
+moduÀ_öô
+(
+˝ld_misc_öô
+);
+
+103 
+moduÀ_exô
+(
+˝ld_misc_exô
+);
+
+	@cpld_misc.mod.c
+
+1 
+	~<löux/moduÀ.h
+>
+
+2 
+	~<löux/vîmagic.h
+>
+
+3 
+	~<löux/compûî.h
+>
+
+5 
+MODULE_INFO
+(
+vîmagic
+, 
+VERMAGIC_STRING
+);
+
+7 
+moduÀ
+ 
+__this_moduÀ
+
+
+8 
+__©åibuã__
+((
+£˘i⁄
+(".gnu.linkonce.this_module"))) = {
+
+9 .
+«me
+ = 
+KBUILD_MODNAME
+,
+
+10 .
+	göô
+ = 
+öô_moduÀ
+,
+
+11 #ifde‡
+CONFIG_MODULE_UNLOAD
+
+
+12 .
+	gexô
+ = 
+˛ónup_moduÀ
+,
+
+14 .
+	g¨ch
+ = 
+MODULE_ARCH_INIT
+,
+
+17 c⁄° 
+modvîsi⁄_öfo
+ 
+	g____vîsi⁄s
+[]
+
+18 
+__u£d
+
+
+19 
+__©åibuã__
+((
+£˘i⁄
+("__versions"))) = {
+
+32 c⁄° 
+	g__moduÀ_dïíds
+[]
+
+33 
+__u£d
+
+
+34 
+__©åibuã__
+((
+£˘i⁄
+(".modinfo"))) =
+
+	@/usr/include/linux/fs.h
+
+1 #i‚de‡
+_LINUX_FS_H
+
+
+2 
+	#_LINUX_FS_H
+
+
+	)
+
+9 
+	~<löux/limôs.h
+>
+
+10 
+	~<löux/io˘l.h
+>
+
+11 
+	~<löux/ty≥s.h
+>
+
+24 #unde‡
+NR_OPEN
+
+
+25 
+	#INR_OPEN_CUR
+ 1024
+
+	)
+
+26 
+	#INR_OPEN_MAX
+ 4096
+
+	)
+
+28 
+	#BLOCK_SIZE_BITS
+ 10
+
+	)
+
+29 
+	#BLOCK_SIZE
+ (1<<
+BLOCK_SIZE_BITS
+)
+
+	)
+
+31 
+	#SEEK_SET
+ 0
+
+	)
+
+32 
+	#SEEK_CUR
+ 1
+
+	)
+
+33 
+	#SEEK_END
+ 2
+
+	)
+
+34 
+	#SEEK_DATA
+ 3
+
+	)
+
+35 
+	#SEEK_HOLE
+ 4
+
+	)
+
+36 
+	#SEEK_MAX
+ 
+SEEK_HOLE
+
+
+	)
+
+38 
+	sf°rim_ønge
+ {
+
+39 
+__u64
+ 
+	m°¨t
+;
+
+40 
+__u64
+ 
+	mÀn
+;
+
+41 
+__u64
+ 
+	mmöÀn
+;
+
+45 
+	sfûes_°©_°ru˘
+ {
+
+46 
+	mƒ_fûes
+;
+
+47 
+	mƒ_‰ì_fûes
+;
+
+48 
+	mmax_fûes
+;
+
+51 
+	söodes_°©_t
+ {
+
+52 
+	mƒ_öodes
+;
+
+53 
+	mƒ_unu£d
+;
+
+54 
+	mdummy
+[5];
+
+58 
+	#NR_FILE
+ 8192
+
+	)
+
+64 
+	#MS_RDONLY
+ 1
+
+	)
+
+65 
+	#MS_NOSUID
+ 2
+
+	)
+
+66 
+	#MS_NODEV
+ 4
+
+	)
+
+67 
+	#MS_NOEXEC
+ 8
+
+	)
+
+68 
+	#MS_SYNCHRONOUS
+ 16
+
+	)
+
+69 
+	#MS_REMOUNT
+ 32
+
+	)
+
+70 
+	#MS_MANDLOCK
+ 64
+
+	)
+
+71 
+	#MS_DIRSYNC
+ 128
+
+	)
+
+72 
+	#MS_NOATIME
+ 1024
+
+	)
+
+73 
+	#MS_NODIRATIME
+ 2048
+
+	)
+
+74 
+	#MS_BIND
+ 4096
+
+	)
+
+75 
+	#MS_MOVE
+ 8192
+
+	)
+
+76 
+	#MS_REC
+ 16384
+
+	)
+
+77 
+	#MS_VERBOSE
+ 32768
+
+	)
+
+79 
+	#MS_SILENT
+ 32768
+
+	)
+
+80 
+	#MS_POSIXACL
+ (1<<16Ë
+
+	)
+
+81 
+	#MS_UNBINDABLE
+ (1<<17Ë
+
+	)
+
+82 
+	#MS_PRIVATE
+ (1<<18Ë
+
+	)
+
+83 
+	#MS_SLAVE
+ (1<<19Ë
+
+	)
+
+84 
+	#MS_SHARED
+ (1<<20Ë
+
+	)
+
+85 
+	#MS_RELATIME
+ (1<<21Ë
+
+	)
+
+86 
+	#MS_KERNMOUNT
+ (1<<22Ë
+
+	)
+
+87 
+	#MS_I_VERSION
+ (1<<23Ë
+
+	)
+
+88 
+	#MS_STRICTATIME
+ (1<<24Ë
+
+	)
+
+91 
+	#MS_NOSEC
+ (1<<28)
+
+	)
+
+92 
+	#MS_BORN
+ (1<<29)
+
+	)
+
+93 
+	#MS_ACTIVE
+ (1<<30)
+
+	)
+
+94 
+	#MS_NOUSER
+ (1<<31)
+
+	)
+
+99 
+	#MS_RMT_MASK
+ (
+MS_RDONLY
+|
+MS_SYNCHRONOUS
+|
+MS_MANDLOCK
+|
+MS_I_VERSION
+)
+
+	)
+
+104 
+	#MS_MGC_VAL
+ 0xC0ED0000
+
+	)
+
+105 
+	#MS_MGC_MSK
+ 0xffff0000
+
+	)
+
+110 
+	#BLKROSET
+ 
+	`_IO
+(0x12,93Ë
+
+	)
+
+111 
+	#BLKROGET
+ 
+	`_IO
+(0x12,94Ë
+
+	)
+
+112 
+	#BLKRRPART
+ 
+	`_IO
+(0x12,95Ë
+
+	)
+
+113 
+	#BLKGETSIZE
+ 
+	`_IO
+(0x12,96Ë
+
+	)
+
+114 
+	#BLKFLSBUF
+ 
+	`_IO
+(0x12,97Ë
+
+	)
+
+115 
+	#BLKRASET
+ 
+	`_IO
+(0x12,98Ë
+
+	)
+
+116 
+	#BLKRAGET
+ 
+	`_IO
+(0x12,99Ë
+
+	)
+
+117 
+	#BLKFRASET
+ 
+	`_IO
+(0x12,100)
+
+	)
+
+118 
+	#BLKFRAGET
+ 
+	`_IO
+(0x12,101)
+
+	)
+
+119 
+	#BLKSECTSET
+ 
+	`_IO
+(0x12,102)
+
+	)
+
+120 
+	#BLKSECTGET
+ 
+	`_IO
+(0x12,103)
+
+	)
+
+121 
+	#BLKSSZGET
+ 
+	`_IO
+(0x12,104)
+
+	)
+
+123 
+	#BLKPG
+ 
+	`_IO
+(0x12,105)
+
+	)
+
+127 
+	#BLKELVGET
+ 
+	`_IOR
+(0x12,106,
+size_t
+)
+
+	)
+
+128 
+	#BLKELVSET
+ 
+	`_IOW
+(0x12,107,
+size_t
+)
+
+	)
+
+133 
+	#BLKBSZGET
+ 
+	`_IOR
+(0x12,112,
+size_t
+)
+
+	)
+
+134 
+	#BLKBSZSET
+ 
+	`_IOW
+(0x12,113,
+size_t
+)
+
+	)
+
+135 
+	#BLKGETSIZE64
+ 
+	`_IOR
+(0x12,114,
+size_t
+Ë
+
+	)
+
+136 
+	#BLKTRACESETUP
+ 
+	`_IOWR
+(0x12,115,
+blk_u£r_åa˚_£tup
+)
+
+	)
+
+137 
+	#BLKTRACESTART
+ 
+	`_IO
+(0x12,116)
+
+	)
+
+138 
+	#BLKTRACESTOP
+ 
+	`_IO
+(0x12,117)
+
+	)
+
+139 
+	#BLKTRACETEARDOWN
+ 
+	`_IO
+(0x12,118)
+
+	)
+
+140 
+	#BLKDISCARD
+ 
+	`_IO
+(0x12,119)
+
+	)
+
+141 
+	#BLKIOMIN
+ 
+	`_IO
+(0x12,120)
+
+	)
+
+142 
+	#BLKIOOPT
+ 
+	`_IO
+(0x12,121)
+
+	)
+
+143 
+	#BLKALIGNOFF
+ 
+	`_IO
+(0x12,122)
+
+	)
+
+144 
+	#BLKPBSZGET
+ 
+	`_IO
+(0x12,123)
+
+	)
+
+145 
+	#BLKDISCARDZEROES
+ 
+	`_IO
+(0x12,124)
+
+	)
+
+146 
+	#BLKSECDISCARD
+ 
+	`_IO
+(0x12,125)
+
+	)
+
+147 
+	#BLKROTATIONAL
+ 
+	`_IO
+(0x12,126)
+
+	)
+
+148 
+	#BLKZEROOUT
+ 
+	`_IO
+(0x12,127)
+
+	)
+
+150 
+	#BMAP_IOCTL
+ 1
+
+	)
+
+151 
+	#FIBMAP
+ 
+	`_IO
+(0x00,1Ë
+
+	)
+
+152 
+	#FIGETBSZ
+ 
+	`_IO
+(0x00,2Ë
+
+	)
+
+153 
+	#FIFREEZE
+ 
+	`_IOWR
+('X', 119, Ë
+
+	)
+
+154 
+	#FITHAW
+ 
+	`_IOWR
+('X', 120, Ë
+
+	)
+
+155 
+	#FITRIM
+ 
+	`_IOWR
+('X', 121, 
+f°rim_ønge
+Ë
+
+	)
+
+157 
+	#FS_IOC_GETFLAGS
+ 
+	`_IOR
+('f', 1, )
+
+	)
+
+158 
+	#FS_IOC_SETFLAGS
+ 
+	`_IOW
+('f', 2, )
+
+	)
+
+159 
+	#FS_IOC_GETVERSION
+ 
+	`_IOR
+('v', 1, )
+
+	)
+
+160 
+	#FS_IOC_SETVERSION
+ 
+	`_IOW
+('v', 2, )
+
+	)
+
+161 
+	#FS_IOC_FIEMAP
+ 
+	`_IOWR
+('f', 11, 
+fõm≠
+)
+
+	)
+
+162 
+	#FS_IOC32_GETFLAGS
+ 
+	`_IOR
+('f', 1, )
+
+	)
+
+163 
+	#FS_IOC32_SETFLAGS
+ 
+	`_IOW
+('f', 2, )
+
+	)
+
+164 
+	#FS_IOC32_GETVERSION
+ 
+	`_IOR
+('v', 1, )
+
+	)
+
+165 
+	#FS_IOC32_SETVERSION
+ 
+	`_IOW
+('v', 2, )
+
+	)
+
+170 
+	#FS_SECRM_FL
+ 0x00000001
+
+	)
+
+171 
+	#FS_UNRM_FL
+ 0x00000002
+
+	)
+
+172 
+	#FS_COMPR_FL
+ 0x00000004
+
+	)
+
+173 
+	#FS_SYNC_FL
+ 0x00000008
+
+	)
+
+174 
+	#FS_IMMUTABLE_FL
+ 0x00000010
+
+	)
+
+175 
+	#FS_APPEND_FL
+ 0x00000020
+
+	)
+
+176 
+	#FS_NODUMP_FL
+ 0x00000040
+
+	)
+
+177 
+	#FS_NOATIME_FL
+ 0x00000080
+
+	)
+
+179 
+	#FS_DIRTY_FL
+ 0x00000100
+
+	)
+
+180 
+	#FS_COMPRBLK_FL
+ 0x00000200
+
+	)
+
+181 
+	#FS_NOCOMP_FL
+ 0x00000400
+
+	)
+
+182 
+	#FS_ECOMPR_FL
+ 0x00000800
+
+	)
+
+184 
+	#FS_BTREE_FL
+ 0x00001000
+
+	)
+
+185 
+	#FS_INDEX_FL
+ 0x00001000
+
+	)
+
+186 
+	#FS_IMAGIC_FL
+ 0x00002000
+
+	)
+
+187 
+	#FS_JOURNAL_DATA_FL
+ 0x00004000
+
+	)
+
+188 
+	#FS_NOTAIL_FL
+ 0x00008000
+
+	)
+
+189 
+	#FS_DIRSYNC_FL
+ 0x00010000
+
+	)
+
+190 
+	#FS_TOPDIR_FL
+ 0x00020000
+
+	)
+
+191 
+	#FS_EXTENT_FL
+ 0x00080000
+
+	)
+
+192 
+	#FS_DIRECTIO_FL
+ 0x00100000
+
+	)
+
+193 
+	#FS_NOCOW_FL
+ 0x00800000
+
+	)
+
+194 
+	#FS_RESERVED_FL
+ 0x80000000
+
+	)
+
+196 
+	#FS_FL_USER_VISIBLE
+ 0x0003DFFF
+
+	)
+
+197 
+	#FS_FL_USER_MODIFIABLE
+ 0x000380FF
+
+	)
+
+200 
+	#SYNC_FILE_RANGE_WAIT_BEFORE
+ 1
+
+	)
+
+201 
+	#SYNC_FILE_RANGE_WRITE
+ 2
+
+	)
+
+202 
+	#SYNC_FILE_RANGE_WAIT_AFTER
+ 4
+
+	)
+
+	@/usr/include/linux/i2c.h
+
+27 #i‚de‡
+_LINUX_I2C_H
+
+
+28 
+	#_LINUX_I2C_H
+
+
+	)
+
+30 
+	~<löux/ty≥s.h
+>
+
+68 
+	si2c_msg
+ {
+
+69 
+__u16
+ 
+	maddr
+;
+
+70 
+__u16
+ 
+	mÊags
+;
+
+71 
+	#I2C_M_TEN
+ 0x0010
+
+	)
+
+72 
+	#I2C_M_RD
+ 0x0001
+
+	)
+
+73 
+	#I2C_M_STOP
+ 0x8000
+
+	)
+
+74 
+	#I2C_M_NOSTART
+ 0x4000
+
+	)
+
+75 
+	#I2C_M_REV_DIR_ADDR
+ 0x2000
+
+	)
+
+76 
+	#I2C_M_IGNORE_NAK
+ 0x1000
+
+	)
+
+77 
+	#I2C_M_NO_RD_ACK
+ 0x0800
+
+	)
+
+78 
+	#I2C_M_RECV_LEN
+ 0x0400
+
+	)
+
+79 
+__u16
+ 
+	mÀn
+;
+
+80 
+__u8
+ *
+	mbuf
+;
+
+85 
+	#I2C_FUNC_I2C
+ 0x00000001
+
+	)
+
+86 
+	#I2C_FUNC_10BIT_ADDR
+ 0x00000002
+
+	)
+
+87 
+	#I2C_FUNC_PROTOCOL_MANGLING
+ 0x00000004
+
+	)
+
+88 
+	#I2C_FUNC_SMBUS_PEC
+ 0x00000008
+
+	)
+
+89 
+	#I2C_FUNC_NOSTART
+ 0x00000010
+
+	)
+
+90 
+	#I2C_FUNC_SMBUS_BLOCK_PROC_CALL
+ 0x00008000
+
+	)
+
+91 
+	#I2C_FUNC_SMBUS_QUICK
+ 0x00010000
+
+	)
+
+92 
+	#I2C_FUNC_SMBUS_READ_BYTE
+ 0x00020000
+
+	)
+
+93 
+	#I2C_FUNC_SMBUS_WRITE_BYTE
+ 0x00040000
+
+	)
+
+94 
+	#I2C_FUNC_SMBUS_READ_BYTE_DATA
+ 0x00080000
+
+	)
+
+95 
+	#I2C_FUNC_SMBUS_WRITE_BYTE_DATA
+ 0x00100000
+
+	)
+
+96 
+	#I2C_FUNC_SMBUS_READ_WORD_DATA
+ 0x00200000
+
+	)
+
+97 
+	#I2C_FUNC_SMBUS_WRITE_WORD_DATA
+ 0x00400000
+
+	)
+
+98 
+	#I2C_FUNC_SMBUS_PROC_CALL
+ 0x00800000
+
+	)
+
+99 
+	#I2C_FUNC_SMBUS_READ_BLOCK_DATA
+ 0x01000000
+
+	)
+
+100 
+	#I2C_FUNC_SMBUS_WRITE_BLOCK_DATA
+ 0x02000000
+
+	)
+
+101 
+	#I2C_FUNC_SMBUS_READ_I2C_BLOCK
+ 0x04000000
+
+	)
+
+102 
+	#I2C_FUNC_SMBUS_WRITE_I2C_BLOCK
+ 0x08000000
+
+	)
+
+104 
+	#I2C_FUNC_SMBUS_BYTE
+ (
+I2C_FUNC_SMBUS_READ_BYTE
+ | \
+
+105 
+I2C_FUNC_SMBUS_WRITE_BYTE
+)
+
+	)
+
+106 
+	#I2C_FUNC_SMBUS_BYTE_DATA
+ (
+I2C_FUNC_SMBUS_READ_BYTE_DATA
+ | \
+
+107 
+I2C_FUNC_SMBUS_WRITE_BYTE_DATA
+)
+
+	)
+
+108 
+	#I2C_FUNC_SMBUS_WORD_DATA
+ (
+I2C_FUNC_SMBUS_READ_WORD_DATA
+ | \
+
+109 
+I2C_FUNC_SMBUS_WRITE_WORD_DATA
+)
+
+	)
+
+110 
+	#I2C_FUNC_SMBUS_BLOCK_DATA
+ (
+I2C_FUNC_SMBUS_READ_BLOCK_DATA
+ | \
+
+111 
+I2C_FUNC_SMBUS_WRITE_BLOCK_DATA
+)
+
+	)
+
+112 
+	#I2C_FUNC_SMBUS_I2C_BLOCK
+ (
+I2C_FUNC_SMBUS_READ_I2C_BLOCK
+ | \
+
+113 
+I2C_FUNC_SMBUS_WRITE_I2C_BLOCK
+)
+
+	)
+
+115 
+	#I2C_FUNC_SMBUS_EMUL
+ (
+I2C_FUNC_SMBUS_QUICK
+ | \
+
+116 
+I2C_FUNC_SMBUS_BYTE
+ | \
+
+117 
+I2C_FUNC_SMBUS_BYTE_DATA
+ | \
+
+118 
+I2C_FUNC_SMBUS_WORD_DATA
+ | \
+
+119 
+I2C_FUNC_SMBUS_PROC_CALL
+ | \
+
+120 
+I2C_FUNC_SMBUS_WRITE_BLOCK_DATA
+ | \
+
+121 
+I2C_FUNC_SMBUS_I2C_BLOCK
+ | \
+
+122 
+I2C_FUNC_SMBUS_PEC
+)
+
+	)
+
+127 
+	#I2C_SMBUS_BLOCK_MAX
+ 32
+
+	)
+
+128 
+	ui2c_smbus_d©a
+ {
+
+129 
+__u8
+ 
+	mbyã
+;
+
+130 
+__u16
+ 
+	mw‹d
+;
+
+131 
+__u8
+ 
+	mblock
+[
+I2C_SMBUS_BLOCK_MAX
+ + 2];
+
+136 
+	#I2C_SMBUS_READ
+ 1
+
+	)
+
+137 
+	#I2C_SMBUS_WRITE
+ 0
+
+	)
+
+141 
+	#I2C_SMBUS_QUICK
+ 0
+
+	)
+
+142 
+	#I2C_SMBUS_BYTE
+ 1
+
+	)
+
+143 
+	#I2C_SMBUS_BYTE_DATA
+ 2
+
+	)
+
+144 
+	#I2C_SMBUS_WORD_DATA
+ 3
+
+	)
+
+145 
+	#I2C_SMBUS_PROC_CALL
+ 4
+
+	)
+
+146 
+	#I2C_SMBUS_BLOCK_DATA
+ 5
+
+	)
+
+147 
+	#I2C_SMBUS_I2C_BLOCK_BROKEN
+ 6
+
+	)
+
+148 
+	#I2C_SMBUS_BLOCK_PROC_CALL
+ 7
+
+	)
+
+149 
+	#I2C_SMBUS_I2C_BLOCK_DATA
+ 8
+
+	)
+
+	@/usr/include/linux/ioctl.h
+
+1 #i‚de‡
+_LINUX_IOCTL_H
+
+
+2 
+	#_LINUX_IOCTL_H
+
+
+	)
+
+4 
+	~<asm/io˘l.h
+>
+
+	@/usr/include/linux/limits.h
+
+1 #i‚de‡
+_LINUX_LIMITS_H
+
+
+2 
+	#_LINUX_LIMITS_H
+
+
+	)
+
+4 
+	#NR_OPEN
+ 1024
+
+	)
+
+6 
+	#NGROUPS_MAX
+ 65536
+
+	)
+
+7 
+	#ARG_MAX
+ 131072
+
+	)
+
+8 
+	#LINK_MAX
+ 127
+
+	)
+
+9 
+	#MAX_CANON
+ 255
+
+	)
+
+10 
+	#MAX_INPUT
+ 255
+
+	)
+
+11 
+	#NAME_MAX
+ 255
+
+	)
+
+12 
+	#PATH_MAX
+ 4096
+
+	)
+
+13 
+	#PIPE_BUF
+ 4096
+
+	)
+
+14 
+	#XATTR_NAME_MAX
+ 255
+
+	)
+
+15 
+	#XATTR_SIZE_MAX
+ 65536
+
+	)
+
+16 
+	#XATTR_LIST_MAX
+ 65536
+
+	)
+
+18 
+	#RTSIG_MAX
+ 32
+
+	)
+
+	@/usr/include/linux/types.h
+
+1 #i‚de‡
+_LINUX_TYPES_H
+
+
+2 
+	#_LINUX_TYPES_H
+
+
+	)
+
+4 
+	~<asm/ty≥s.h
+>
+
+6 #i‚de‡
+__ASSEMBLY__
+
+
+8 
+	~<löux/posix_ty≥s.h
+>
+
+16 #ifde‡
+__CHECKER__
+
+
+17 
+	#__bôwi£__
+ 
+	`__©åibuã__
+((
+bôwi£
+))
+
+	)
+
+19 
+	#__bôwi£__
+
+
+	)
+
+21 #ifde‡
+__CHECK_ENDIAN__
+
+
+22 
+	#__bôwi£
+ 
+__bôwi£__
+
+
+	)
+
+24 
+	#__bôwi£
+
+
+	)
+
+27 
+__u16
+ 
+	t__bôwi£
+ 
+	t__À16
+;
+
+28 
+__u16
+ 
+	t__bôwi£
+ 
+	t__be16
+;
+
+29 
+__u32
+ 
+	t__bôwi£
+ 
+	t__À32
+;
+
+30 
+__u32
+ 
+	t__bôwi£
+ 
+	t__be32
+;
+
+31 
+__u64
+ 
+	t__bôwi£
+ 
+	t__À64
+;
+
+32 
+__u64
+ 
+	t__bôwi£
+ 
+	t__be64
+;
+
+34 
+__u16
+ 
+	t__bôwi£
+ 
+	t__sum16
+;
+
+35 
+__u32
+ 
+	t__bôwi£
+ 
+	t__wsum
+;
+
+46 
+	#__Æig√d_u64
+ 
+__u64
+ 
+	`__©åibuã__
+((
+	`Æig√d
+(8)))
+
+	)
+
+47 
+	#__Æig√d_be64
+ 
+__be64
+ 
+	`__©åibuã__
+((
+	`Æig√d
+(8)))
+
+	)
+
+48 
+	#__Æig√d_À64
+ 
+__À64
+ 
+	`__©åibuã__
+((
+	`Æig√d
+(8)))
+
+	)
+
+	@/usr/include/linux/posix_types.h
+
+1 #i‚de‡
+_LINUX_POSIX_TYPES_H
+
+
+2 
+	#_LINUX_POSIX_TYPES_H
+
+
+	)
+
+4 
+	~<löux/°ddef.h
+>
+
+21 #unde‡
+__FD_SETSIZE
+
+
+22 
+	#__FD_SETSIZE
+ 1024
+
+	)
+
+25 
+	mfds_bôs
+[
+__FD_SETSIZE
+ / (8 * ())];
+
+26 } 
+	t__kî√l_fd_£t
+;
+
+29 (*
+	t__kî√l_sigh™dÀr_t
+)();
+
+32 
+	t__kî√l_key_t
+;
+
+33 
+	t__kî√l_mqd_t
+;
+
+35 
+	~<asm/posix_ty≥s.h
+>
+
+	@/usr/include/linux/stddef.h
+
+	@
+1
+.
+1
+/usr/include
+9
+220
+cpld_misc.c
+cpld_misc.mod.c
+/usr/include/linux/fs.h
+/usr/include/linux/i2c.h
+/usr/include/linux/ioctl.h
+/usr/include/linux/limits.h
+/usr/include/linux/types.h
+/usr/include/linux/posix_types.h
+/usr/include/linux/stddef.h

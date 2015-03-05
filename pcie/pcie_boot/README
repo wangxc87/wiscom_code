@@ -1,0 +1,30 @@
+This directory contains following files:
+	1) saBootApp.c: Sample boot application for booting TI816X or TI814X
+	PCIe Endpoint (EP)connected to a PCIe Root Complex (RC).
+		- This application is meant to be executed on PCIe RC
+		- Requires TI81XX PCIe Boot Driver loaded
+		- Execute the application without any arguments for help
+
+	2) saBootApp: ELF built for running on TI814X/TI816X RC.
+
+	3) Makefile: For building the application. Set following in the file:
+		- CC: Compiler executable. Ensure that PATH is set already. This
+		  can be host compiler or cross compiler (e.g., TI816X compiler)
+		  as per the RC being used.
+		- KERNEL_DIR: Path to kernel source directory, This kernel must
+		  be the same running on RC and have TI81XX PCIe EP Boot Driver
+		  sources present.
+
+	4) bootscript.txt: U-Bot boot script for EP boot. By default it uses
+	RAMDISK for kernel filesystem and the bootargs are for TI816X EP. Ensure
+	that the addresses used for kernel (as part of 'bootm' command) and
+	RAMDISK are as used by boot application to load respective images on EP.
+	This file can be modified for TI814X EP.
+
+	5)boot.scr: Prebuilt boot script image from above bootscript.txt.
+
+Building:
+	1) saBootApp: Type "make" on Linux host machine.
+	2) boot.scr: Ensure that TI816X U-Boot 'mkimage' is in path and type:
+		"mkimage -A arm -O linux -T script -C none -n 'PCIe Boot Script'
+		-d bootscript.txt boot.scr"

@@ -1,0 +1,3 @@
+kernel//home/wxc/dsp/myproject/hhcn/module/ads1100.ko
+kernel//home/wxc/dsp/myproject/hhcn/module/dac8571.ko
+kernel//home/wxc/dsp/myproject/hhcn/module/pwm.ko

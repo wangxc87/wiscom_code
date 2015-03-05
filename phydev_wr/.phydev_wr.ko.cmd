@@ -1,0 +1,1 @@
+cmd_/home/wxc/dsp/myproject/phydev_wr/phydev_wr.ko := arm-arago-linux-gnueabi-ld -EL -r  -T /home/wxc/dsp/DVRRDK_04.01.00.02/ti_tools/linux_lsp/kernel/linux-dvr-rdk/scripts/module-common.lds --build-id  -o /home/wxc/dsp/myproject/phydev_wr/phydev_wr.ko /home/wxc/dsp/myproject/phydev_wr/phydev_wr.o /home/wxc/dsp/myproject/phydev_wr/phydev_wr.mod.o
