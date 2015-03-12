@@ -2,3 +2,7 @@
 *~
 #*
 *.o.*
+*.order
+Module.symvers
+*.mod.c
+.*
