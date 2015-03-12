@@ -34,6 +34,7 @@
 #include <linux/gpio.h>
 #include <linux/spi/spi.h>
 #include <linux/freezer.h>
+#include <linux/mutex.h>
 #include "max3107.h"
 
 static const struct baud_table brg26_ext[] = {
@@ -82,7 +83,9 @@ static const struct baud_table brg13_int[] = {
 	{ 921600, MAX3107_BRG13_IB921600 },
 	{ 0, 0 }
 };
-
+#define MAX_MAX3107 4
+static struct max3107_port *max3107s[MAX_MAX3107]; /* the chips */
+static DEFINE_MUTEX(max3107s_lock);		   /* race on probe */
 static u32 get_new_brg(int baud, struct max3107_port *s)
 {
 	int i;
@@ -97,30 +100,6 @@ static u32 get_new_brg(int baud, struct max3107_port *s)
 }
 
 #ifdef CONFIG_WISCOM
-static int max3100_sr(struct max3107_port *s, u16 tx, u16 *rx)
-{
-	struct spi_message message;
-	u16 etx, erx;
-	int status;
-	struct spi_transfer tran = {
-		.tx_buf = &etx,
-		.rx_buf = &erx,
-		.len = 2,
-	};
-
-	/* etx = cpu_to_be16(tx); */
-	spi_message_init(&message);
-	spi_message_add_tail(&tran, &message);
-	status = spi_sync(s->spi, &message);
-	if (status) {
-		dev_warn(&s->spi->dev, "error while calling spi_sync\n");
-		return -EIO;
-	}
-	/* *rx = be16_to_cpu(erx); */
-    *rx = erx;
-	/* dev_dbg(&s->spi->dev, "%04x - %04x\n", tx, *rx); */
-	return 0;
-}
 
 #define SPI_BURST_NUM 64
 static	struct spi_transfer spi_xfer[SPI_BURST_NUM];
@@ -129,26 +108,15 @@ static	struct spi_transfer spi_xfer[SPI_BURST_NUM];
 int max3107_rw(struct max3107_port *s, u8 *tx, u8 *rx, int len)
 {
 	struct spi_message spi_msg;
-    int i = 0,j, count,u16_len;
+    int i = 0,count,u16_len;
     int tran_exit = 0;
-    u16 *prx,*ptx, etx,erx;
+    u16 *prx,*ptx;
 
     ptx = (u16 *)tx;
     prx = (u16 *)rx;
-    erx = 0;
-#if 0
-    for(i = 0; i < len/2; i++)
-    {
-        max3100_sr(s,*ptx, &erx);
-        *prx = erx;
-        prx ++;
-        ptx ++;
-    }
-#else
-    i = 0;
+
     u16_len = len/2;
     do{
-        
         if(u16_len < SPI_BURST_NUM){
             count = u16_len;
             tran_exit = 1;
@@ -158,7 +126,6 @@ int max3107_rw(struct max3107_port *s, u8 *tx, u8 *rx, int len)
             if(u16_len == 0)  
                 tran_exit = 1;
         }
-
         /* Initialize SPI ,message */
         spi_message_init(&spi_msg);
 
@@ -189,8 +156,6 @@ int max3107_rw(struct max3107_port *s, u8 *tx, u8 *rx, int len)
 
     }while(!tran_exit);
 
-#endif
-
 	return 0;
 }
 #else
@@ -199,15 +164,6 @@ int max3107_rw(struct max3107_port *s, u8 *tx, u8 *rx, int len)
 {
 	struct spi_message spi_msg;
 	struct spi_transfer spi_xfer;
-#ifdef CONFIG_WISCOM1
-    u16 etx[128], erx[128], *ptr_tmp;
-    int j;
-    ptr_tmp = (u16 *)tx;
-    for(j = 0;j < len/2; j++){
-        etx[j] = *ptr_tmp;
-        ptr_tmp ++;
-    }
-#endif
 	/* Initialize SPI ,message */
 	spi_message_init(&spi_msg);
 
@@ -270,6 +226,7 @@ static void put_data_to_circ_buf(struct max3107_port *s, unsigned char *data,
 	/* Update RX counter */
 	port->icount.rx += len;
 }
+
 /* Handle data receiving */
 static void max3107_handlerx(struct max3107_port *s, u16 rxlvl)
 {
@@ -288,7 +245,6 @@ static void max3107_handlerx(struct max3107_port *s, u16 rxlvl)
 		return;
 	} else if (rxlvl >= MAX3107_RX_FIFO_SIZE) {
 		dev_warn(&s->spi->dev, "Possible RX FIFO overrun %d\n", rxlvl);
-        printk("Possible RX FIFO overrun %d\n", rxlvl);//wiscom
 		/* Ensure sanity of RX level */
 		rxlvl = MAX3107_RX_FIFO_SIZE;
 	}
@@ -451,6 +407,7 @@ static void max3107_handletx(struct max3107_port *s)
 		uart_write_wakeup(&s->port);
 
 }
+
 /* Handle interrupts
  * Also reads and returns current RX FIFO level
  */
@@ -530,27 +487,6 @@ static void max3107_dowork(struct max3107_port *s)
     }
 }
 
-static int max3107_read_id(struct max3107_port *s)//wiscom
-{
-	u16 buf[11];	/* Buffer for SPI transfers */
-    int i,j;
-    printk("%s enter.\n",__func__);
-#ifdef CONFIG_WISCOM
-    for(i = 0; i < 8; i++)
-        buf[i] = 0x1E;//MAX3107_REVID_REG;
-	if (max3107_rw(s, (u8 *)buf, (u8 *)buf, 2*i)) {
-		dev_err(&s->spi->dev, "SPI transfer for REVID read failed\n");
-        return -EIO;
-	}
-    printk("%s: Test spi, Read 8 devId: ", __func__);
-    for(j=0; j<i; j++)
-        printk("0x%x  ", buf[j]);
-    printk("\n");
-    return 0;
-#endif
-    
-}
-
 /* Work thread */
 static void max3107_work(struct work_struct *w)
 {
@@ -561,8 +497,6 @@ static void max3107_work(struct work_struct *w)
 	unsigned long flags;
 
     pr_debug("%s enter..\n", __func__); //wiscom
-
-     /* max3107_read_id(s); */
     
 	/* Start by reading current RX FIFO level */
 	buf[0] = MAX3107_RXFIFOLVL_REG;
@@ -743,7 +677,7 @@ static void max3107_register_init(struct max3107_port *s)
 	/* 5. Configure FIFO trigger level register */
 	buf[6] = (MAX3107_WRITE_BIT | MAX3107_FIFOTRIGLVL_REG);
 	/* RX FIFO trigger for 16 words, TX FIFO trigger not used */
-	buf[6] |= (MAX3107_FIFOTRIGLVL_RX(16) | MAX3107_FIFOTRIGLVL_TX(0));//defualt 16 wiscom
+	buf[6] |= (MAX3107_FIFOTRIGLVL_RX(16) | MAX3107_FIFOTRIGLVL_TX(0));
 
 	/* 6. Configure flow control levels */
 	buf[7] = (MAX3107_WRITE_BIT | MAX3107_FLOWLVL_REG);
@@ -1147,13 +1081,30 @@ int max3107_probe(struct spi_device *spi, struct max3107_plat *pdata)
 	struct max3107_port *s;
 	u16 buf[2];	/* Buffer for SPI transfers */
 	int retval;
+    int i = 0;
 
+    mutex_lock(&max3107s_lock);
+    
 	pr_info("enter max3107 probe\n");
+
+    for (i = 0; i < MAX_MAX3107; i++)
+		if (!max3107s[i]){
+			break;
+            s = max3107s[i];            
+        }
+    
+	if (i == MAX_MAX3107) {
+		dev_warn(&spi->dev, "too many MAX3107 chips\n");
+		mutex_unlock(&max3107s_lock);
+		return -ENOMEM;
+	}
+
 
 	/* Allocate port structure */
 	s = kzalloc(sizeof(*s), GFP_KERNEL);
 	if (!s) {
 		pr_err("Allocating port structure failed\n");
+		mutex_unlock(&max3107s_lock);
 		return -ENOMEM;
 	}
 
@@ -1231,12 +1182,12 @@ int max3107_probe(struct spi_device *spi, struct max3107_plat *pdata)
 	}
 	if ((buf[0] & MAX3107_SPI_RX_DATA_MASK) != MAX3107_REVID1 &&
 		(buf[0] & MAX3107_SPI_RX_DATA_MASK) != MAX3107_REVID2) {
-		dev_err(&s->spi->dev, "REVID 0x%x does not match\n",
+		dev_err(&s->spi->dev, "REVID 0x%x does not match 0xa1\n",
 				(buf[0] & MAX3107_SPI_RX_DATA_MASK));
 		retval = -ENODEV;
 		goto err_free1;
 	}
-    printk("******MAX REVID is 0x%x, should be 0xa1*****\n", buf[0]);
+    pr_debug("******MAX REVID is 0x%x, should be 0xa1*****\n", buf[0]);
 	/* Disable all interrupts */
 	buf[0] = (MAX3107_WRITE_BIT | MAX3107_IRQEN_REG | 0x0000);
 	buf[0] |= 0x0000;
@@ -1271,7 +1222,7 @@ int max3107_probe(struct spi_device *spi, struct max3107_plat *pdata)
 	/* Initialize UART port data */
 	s->port.fifosize = 128;
 	s->port.ops = &max3107_ops;
-	s->port.line = 0;
+	s->port.line = i;//0;
 	s->port.dev = &spi->dev;
 	s->port.uartclk = 9600;
 	s->port.flags = UPF_SKIP_TEST | UPF_BOOT_AUTOCONF;
@@ -1294,7 +1245,8 @@ int max3107_probe(struct spi_device *spi, struct max3107_plat *pdata)
 	/* Go to suspend mode */
 	if (pdata->hw_suspend)
 		pdata->hw_suspend(s, 1);
-
+    mutex_unlock(&max3107s_lock);
+	pr_info("max3107-%d probe success. \n",i);
 	return 0;
 
 err_free1:
@@ -1305,6 +1257,8 @@ err_free3:
 	kfree(s->rxbuf);
 err_free4:
 	kfree(s);
+    mutex_unlock(&max3107s_lock);
+	pr_err("max3107-%d probe fail. \n",i);    
 	return retval;
 }
 EXPORT_SYMBOL_GPL(max3107_probe);
