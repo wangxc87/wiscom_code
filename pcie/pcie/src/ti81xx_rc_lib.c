@@ -83,12 +83,13 @@ Int32 get_pcie_subsys_info(void)
     return -1;
 }
 
-
-Int32 pcieRc_init(void)
+//mode: RC init mode, mode :INIT_ALL_EPS, INIT_SOME_EPS
+Int32 pcieRc_init(int mode)
 {
     struct ti81xx_start_addr_area start_addr;
     Int32 s32Ret = 0;
     UInt32 i, j;
+
     gPciedev_master_fd = open(PCIE_RC_DEVICE, O_RDWR);
     if(gPciedev_master_fd < 0){
         err_print("Open device %s Error.\n", PCIE_RC_DEVICE);
@@ -103,6 +104,7 @@ Int32 pcieRc_init(void)
     debug_print("RC address of reserve mem is virt--0x%x phy--0x%x.\n",
                 start_addr.start_addr_virt,start_addr.start_addr_phy);
 
+    
     gDataBuf_base = mmap(0,PCIE_RC_RESERVE_MEM_SIZE,
                          PROT_READ | PROT_WRITE, MAP_SHARED,
                          gPciedev_master_fd, (off_t)start_addr.start_addr_phy);
@@ -120,32 +122,54 @@ Int32 pcieRc_init(void)
         err_print("Get pcie subsys info Error.\n");
         goto ERROR;
     }
-    printf("Pcie get subsys info successfully.\n");
-    
+    printf("Pcie get %d EPs subsys info successfully.\n", gEp_nums);  
+    printf("Wait slave respond.\n");
+    int init_retry = 0;
+    int inited_eps = 0;
+retry_broadcast:   
     for(i = 0; i < gEp_nums; i ++){
-        gMgmt_infoPtr[i]->ep_id = EP_ID_ALL;
-        gMgmt_infoPtr[i]->wr_index = 1;
-        gMgmt_infoPtr[i]->ep_outbase = start_addr.start_addr_phy;
+        if(!  gPciedev_info[i].dev_id){ //avoid init inited_ep agian
+            gMgmt_infoPtr[i]->ep_id = EP_ID_ALL;
+            gMgmt_infoPtr[i]->wr_index = 1;
+            gMgmt_infoPtr[i]->ep_outbase = start_addr.start_addr_phy;
+        }
     }
 #define INIT_TIMEOUT (3*100000)
     j = 0;
-    printf("Wait slave respond.\n");
-    while(j < INIT_TIMEOUT){
-        usleep(10);
+    struct mgmt_info tmp_info;
+    memset(&tmp_info, 0, sizeof(struct mgmt_info));
+
+    while(j < INIT_TIMEOUT/10){ //wait 1s
+        usleep(100);
         for(i = 0; i < gEp_nums; i ++){
-            if(gMgmt_infoPtr[i]->ep_initted != TRUE)
-                break;
+            memcpy_neon(&tmp_info, gMgmt_infoPtr[i], sizeof(struct mgmt_info));
+            if(tmp_info.ep_initted != TRUE) {
+                continue;
+            }
+            
+            if((! gPciedev_info[i].dev_id) && (tmp_info.ep_id != EP_ID_ALL)){
+                gPciedev_info[i].dev_id = tmp_info.ep_id; //record ep hw_id
+                inited_eps ++;
+                printf("store pciedev_inf[%d] dev_id is %d.\n", i, tmp_info.ep_id);
+            }
         }
-        if(i == gEp_nums)
+
+        if(inited_eps == gEp_nums) //when all eps inited 
+            break;
+        if((mode != INIT_ALL_EPS)&&inited_eps) //when some eps inited 
             break;
         j++;
     }
     
-    if(INIT_TIMEOUT == j){
+    if(INIT_TIMEOUT == j*10){
+        if(init_retry++ < 10)
+            goto retry_broadcast;
         err_print("Wait PCIe subsys init timeout.\n");
         return -1;
     }
-   return 0;
+    
+    debug_print("rc init success\n");
+    return 0;
 
  ERROR:
     munmap(gDataBuf_base, PCIE_RC_RESERVE_MEM_SIZE);
@@ -172,12 +196,11 @@ char *OSA_pciReqDataBuf(UInt32 buf_size)
     return ptr_tmp;
 }
 static UInt32 frame_count = 0;
-
 //data_ptr: not used timeout 0:表示默认时间,单位ms
 Int32 OSA_pcieSendData(char *data_ptr, UInt32 buf_size,UInt32 pciedev_id, UInt32 timeout)
 {
     Int32 ret;
-    UInt32 i = 0,time_out;
+    UInt32 i = 0,ep_index,time_out;
     
     if(buf_size >= PCIE_RC_RESERVE_MEM_SIZE){
         err_print("Send buf length too large.\n");
@@ -188,13 +211,43 @@ Int32 OSA_pcieSendData(char *data_ptr, UInt32 buf_size,UInt32 pciedev_id, UInt32
     else
         time_out = timeout * 500;
 
-    while(gDatabuf_headPtr->wr_index != 0){
-        usleep(2);
+    /* while(gDatabuf_headPtr->wr_index != 0){ */
+    while(1){  //wait last send complete
+    retry_test:
+
+        if(!gDatabuf_headPtr->data_to_id)  //first send
+            break;
+
+        if(gDatabuf_headPtr->data_to_id == EP_ID_ALL){
+            for(ep_index=0;ep_index < gEp_nums; ep_index ++){
+            
+                if(!gPciedev_info[ep_index].dev_id)
+                    continue;
+                
+                if(!gDatabuf_headPtr->ep_rd_flag[devid_to_index(gPciedev_info[ep_index].dev_id)]) {
+                    //if ep read or not
+                    ep_index = 0;
+                    break;
+                }
+            }
+
+            if(ep_index == gEp_nums){
+                break;
+            }
+            debug_print("[%u] waiting free buf 1-%i\n", frame_count, i);
+        } else {
+            if(gDatabuf_headPtr->ep_rd_flag[devid_to_index(gDatabuf_headPtr->data_to_id)])
+                break;
+            debug_print("[%u] waiting free buf 2-%i\n", frame_count, i);
+        }
+        
         i ++;
         if(i == time_out){
             err_print("RC send data Timeout,No free buf.\n");
-            return -1;
+            return  PCIEDEV_EBUSY;
         }
+        usleep(100);
+        goto retry_test;
     }
 
     memcpy_neon(gDataBuf_recvSend, data_ptr, buf_size);
@@ -203,6 +256,7 @@ Int32 OSA_pcieSendData(char *data_ptr, UInt32 buf_size,UInt32 pciedev_id, UInt32
     gDatabuf_headPtr->frame_id = frame_count;
     gDatabuf_headPtr->rd_index = gEp_nums;
     gDatabuf_headPtr->buf_size = buf_size;
+    memset(gDatabuf_headPtr->ep_rd_flag, 0, sizeof(gDatabuf_headPtr->ep_rd_flag));
 
     if(pciedev_id == EP_ID_ALL){
         gDatabuf_headPtr->data_to_id = EP_ID_ALL;
@@ -216,6 +270,7 @@ Int32 OSA_pcieSendData(char *data_ptr, UInt32 buf_size,UInt32 pciedev_id, UInt32
         frame_count ++;
     else
         frame_count = 0;
+    debug_print("[%u] send data size %u.\n", frame_count, buf_size);
 
     return buf_size;
 }

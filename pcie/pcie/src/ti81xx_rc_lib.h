@@ -4,7 +4,7 @@
 
 #include "pcie_std.h"
 
-Int32 pcieRc_init(void);
+Int32 pcieRc_init(int mode);
 
 char *OSA_pciReqDataBuf(UInt32 buf_size);
 

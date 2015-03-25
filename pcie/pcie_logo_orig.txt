@@ -1,0 +1,99 @@
+ti81xx_pcie: Invoking PCI BIOS...
+ti81xx_pcie: Setting up Host Controller...
+ti81xx_pcie: Register base [0x51000000] mapped @0xda830000
+ti81xx_pcie: Starting PCI scan...
+PCI: bus0: Fast back to back transfers disabled
+pci 0000:01:00.0: Setting PCI class for 81xx PCIe device
+PCI: bus1: Fast back to back transfers disabled
+ti81xx_pcie: PCI scan done.
+pci 0000:00:00.0: BAR 9: assigned [mem 0x20000000-0x217fffff pref]
+pci 0000:00:00.0: BAR 8: assigned [mem 0x21800000-0x218fffff]
+pci 0000:01:00.0: BAR 2: assigned [mem 0x20000000-0x20ffffff pref]
+pci 0000:01:00.0: BAR 2: set to [mem 0x20000000-0x20ffffff pref] (PCI address [0x20000000-0x20ffffff])
+pci 0000:01:00.0: BAR 1: assigned [mem 0x21000000-0x217fffff pref]
+pci 0000:01:00.0: BAR 1: set to [mem 0x21000000-0x217fffff pref] (PCI address [0x21000000-0x217fffff])
+pci 0000:01:00.0: BAR 0: assigned [mem 0x21800000-0x21800fff]
+pci 0000:01:00.0: BAR 0: set to [mem 0x21800000-0x21800fff] (PCI address [0x21800000-0x21800fff])
+pci 0000:00:00.0: PCI bridge to [bus 01-01]
+pci 0000:00:00.0:   bridge window [io  disabled]
+pci 0000:00:00.0:   bridge window [mem 0x21800000-0x218fffff]
+pci 0000:00:00.0:   bridge window [mem 0x20000000-0x217fffff pref]
+PCI: enabling device 0000:00:00.0 (0140 -> 0143)
+bio: create slab <bio-0> at 0
+vgaarb: loaded
+
+
+
+root@dm816x:/sys/bus/pci/devices# ls
+0000:00:00.0  0000:01:00.0
+root@dm816x:/sys/bus/pci/devices# ls 0000\:00\:00.0/
+0000:01:00.0              irq                       rescan
+broken_parity_status      local_cpulist             reset
+class                     local_cpus                resource
+config                    modalias                  subsystem
+consistent_dma_mask_bits  msi_bus                   subsystem_device
+device                    pci_bus                   subsystem_vendor
+dma_mask_bits             power                     uevent
+enable                    remove                    vendor
+root@dm816x:/sys/bus/pci/devices# cat 0000\:00\:00.0/class                                                                                            
+0x060400
+root@dm816x:/sys/bus/pci/devices# cat 0000\:00\:00.0/device 
+0xb80f
+root@dm816x:/sys/bus/pci/devices# cat 0000\:00\:00.0/resource 
+0x0000000000000000 0x0000000000000000 0x0000000000000000
+0x0000000000000000 0x0000000000000000 0x0000000000000000
+0x0000000000000000 0x0000000000000000 0x0000000000000000
+0x0000000000000000 0x0000000000000000 0x0000000000000000
+0x0000000000000000 0x0000000000000000 0x0000000000000000
+0x0000000000000000 0x0000000000000000 0x0000000000000000
+0x0000000000000000 0x0000000000000000 0x0000000000000000
+0x0000000000000000 0x0000000000000000 0x0000000000000000
+0x0000000021800000 0x00000000218fffff 0x0000000000000200
+0x0000000020000000 0x00000000217fffff 0x0000000000002200
+0x0000000000000000 0x0000000000000000 0x0000000000000000
+0x0000000000000000 0x0000000000000000 0x0000000000000000
+
+root@dm816x:/sys/bus/pci/devices# cat 0000\:01\:00.0/
+broken_parity_status      local_cpus                resource1
+class                     modalias                  resource1_wc
+config                    msi_bus                   resource2
+consistent_dma_mask_bits  power/                    resource2_wc
+device                    remove                    subsystem/
+dma_mask_bits             rescan                    subsystem_device
+enable                    reset                     subsystem_vendor
+irq                       resource                  uevent
+local_cpulist             resource0                 vendor
+root@dm816x:/sys/bus/pci/devices# cat 0000\:01\:00.0/resource 
+0x0000000021800000 0x0000000021800fff 0x0000000000040200
+0x0000000021000000 0x00000000217fffff 0x0000000000042208
+0x0000000020000000 0x0000000020ffffff 0x0000000000042208
+0x0000000000000000 0x0000000000000000 0x0000000000000000
+0x0000000000000000 0x0000000000000000 0x0000000000000000
+0x0000000000000000 0x0000000000000000 0x0000000000000000
+0x0000000000000000 0x0000000000000000 0x0000000000000000
+root@dm816x:/sys/bus/pci/devices# cat 0000\:01\:00.0/device 
+0xb800
+root@dm816x:/sys/bus/pci/devices# cat 0000\:01\:00.0/class 
+0x000400
+
+
+root@dm816x:/mnt/home/root/pcie# insmod ti81xx_pcie_bootdrv.ko 
+ti81xx_pcie_ep: Found TI81xx PCIe EP @0xd9c36c00, DEVICE ID = b800
+pci 0000:01:00.0: This driver supports booting the first TI816x or TI814x target found on the bus
+pci 0000:01:00.0: Major number 250 assigned
+pci 0000:01:00.0: Added device to the sys file system
+pci 0000:01:00.0: TI81XX working in 32 bit mode
+pci 0000:01:00.0: BAR Configuration -
+           Start        |       Length  |       Flags
+pci 0000:01:00.0: 0 index 0 bars
+pci 0000:01:00.0:       0x21800000      |       0x00001000      |       0x00040200
+pci 0000:01:00.0: 1 index 1 bars
+pci 0000:01:00.0:       0x21000000      |       0x00800000      |       0x00042208
+pci 0000:01:00.0: 2 index 2 bars
+pci 0000:01:00.0:       0x20000000      |       0x01000000      |       0x00042208
+pci 0000:01:00.0: TI81XX registers [0x21800000] mapped to 0xda98e000
+pci 0000:01:00.0: TI81XX OCMC [0x21000000] mapped to 0xdd000000
+pci 0000:01:00.0: TI81XX DDR [0x08lx] mapped to 0x20000000
+
+
+

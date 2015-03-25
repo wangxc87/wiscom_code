@@ -25,7 +25,10 @@ endif
 
 CFLAGS += -O2 -mcpu=cortex-a8 -mfpu=neon -mfloat-abi=softfp
 
-all: rc ep
+all: build_all
+
+build_all:lib
+	@make -C demo "CC=$(CROSS_COMPILE)" "CFLAGS=$(CFLAGS)" all
 
 lib:
 	@echo "make lib.."

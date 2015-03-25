@@ -47,10 +47,12 @@
 #define WISCOM_THPT_EPREAD_SYNS
 //校验数据
 #define CONFIG_WISCOM_COMPARE
+#define THPT
 
+/* extern int gDebug_enable; */
 
 #define debug_print(fmt, ...) \
-	do { if (DEBUG_TEST) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
+	do { if (gDebug_enable || DEBUG_TEST) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
 				__LINE__, __func__, ##__VA_ARGS__); } while (0)
 
 /* in debug mode every thing will be printed

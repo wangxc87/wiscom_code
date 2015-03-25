@@ -1,4 +1,4 @@
-cscope 15 $HOME/dsp/myproject/pcie/pcie/src               0000170661
+cscope 15 $HOME/dsp/myproject/pcie/pcie/src               0000174638
 	@debug_msg.h
 
 36 #iâdeà
@@ -182,114 +182,126 @@ __PCIE_COMMON_H__
 	)
 
 19 
-	#THPT_TEST
+	#TEST_PCIE_MSI
 
 
 	)
 
-21 
+23 
+	#EDMA_TRANSMISSION
+
+
+	)
+
+25 
 	smgmt_šfo
  {
 
-22 
+26 
 UIÁ32
  
 	m•_id
 ;
 
-23 
+27 
 UIÁ32
  
 	mwr_šdex
 ;
 
-24 
+28 
 UIÁ32
  
 	mrd_šdex
 ;
 
-25 
+29 
 UIÁ32
  
 	m•_outba£
 ;
 
-26 
+30 
 UIÁ32
  
 	m•_š™‹d
 ;
 
-29 
+33 
 	spc›dev_d©abuf_h—d
 {
 
-30 
+34 
 UIÁ32
  
 	md©a_to_id
 ;
 
-31 
+35 
 UIÁ32
  
 	md©a_äom_id
 ;
 
-32 
+36 
 UIÁ32
  
 	mäame_id
 ;
 
-33 
+37 
 UIÁ32
  
 	mwr_šdex
 ;
 
-34 
+38 
 UIÁ32
  
 	mrd_šdex
 ;
 
-35 
+39 
 UIÁ32
  
 	mbuf_size
 ;
 
-38 
+42 
 	spc›dev_šfo
  {
 
-39 
+43 
 UIÁ32
  
 	mid
 ;
 
-40 
+44 
 UIÁ32
  
 	mrd_šdex
 ;
 
-41 
+45 
 UIÁ32
  
 	m»s_v®ue
 [6][2];
 
-42 *
+46 *
 	md©a_buf
 ;
 
-43 *
+47 *
 	mmgmt_buf
 ;
+
+51 *
+memýy_ÃÚ
+(*, cÚ¡ *, 
+size_t
+);
 
 	@pcie_std.h
 
@@ -393,6 +405,38 @@ __ýlu¥lus
 __ýlu¥lusxb
 
 
+	@sysdep.h
+
+1 
+	#ENTRY
+(
+a
+è
+FNAME
+:
+
+	)
+
+2 
+	#END
+(
+a
+)
+
+	)
+
+3 
+	#libc_hidd’_bužtš_def
+(
+a
+è.
+glob®
+ 
+FNAME
+
+
+	)
+
 	@ti81xx_ep.c
 
 1 
@@ -475,7 +519,7 @@ __ýlu¥lusxb
 
 	)
 
-23 
+25 
 IÁ32
  
 	ggS–f_id
@@ -483,49 +527,67 @@ IÁ32
 PCIE_INVALID_ID
 ;
 
-24 
+26 
 IÁ32
  
 	ggPc›dev_¦ave_fd
  = -1;
 
-25 
+27 
 IÁ32
  
 	ggPc›dev_edma_fd
  = -1;
 
-27 
+29 
 pc›dev_šfo
  
 	ggPc›dev_¦ave_šfo
 ;
 
-28 
+30 
+ti81xx_pc›_mem_šfo
+ 
+	ggPc›dev_¦ave_rsv_mem
+;
+
+32 
 mgmt_šfo
  *
 	ggPc›dev_mgmt_šfoPŒ
 ;
 
-29 *
+33 *
 	ggMgmt_m­_buf
  = 
 NULL
 ;
 
-30 *
+34 *
 	ggD©a_m­_buf
  = 
 NULL
 ;
 
-31 *
+35 *
 	ggD©a_buf
  = 
 NULL
 ;
 
-33 
+36 *
+	ggD©a_edma_»cvBuf
+ = 
+NULL
+;
+
+37 *
+	ggD©a_edma_£ndBuf
+ = 
+NULL
+;
+
+39 
 pc›dev_d©abuf_h—d
  *
 	ggD©abuf_h—dPŒ
@@ -533,19 +595,19 @@ pc›dev_d©abuf_h—d
 NULL
 ;
 
-36 
+42 
 IÁ32
  
 	$edma_š™
 ()
 
-38 
+44 
 IÁ32
  
 »t
  = 0;
 
-40 
+46 
 gPc›dev_edma_fd
  = 
 	`Ý’
@@ -555,39 +617,43 @@ TI81XX_EDMA_DEVICE
 O_RDWR
 );
 
-41 if(
+47 if(
 gPc›dev_edma_fd
  < 0){
 
-42 
+48 
 	`”r_´št
 ("edm¨deviû % Ý’ E¼Ü.\n", 
 TI81XX_EDMA_DEVICE
 );
 
-46 
+49 
+gPc›dev_edma_fd
+ = -1;
+
+53 
 	}
 }
 
-47 
+54 
 	#RSVMEM_MGMT_SIZE
  (0x200000)
 
 	)
 
-48 
+55 
 	#RSVMEM_EDMA_RECV_BUF_SIZE
  (0x300000)
 
 	)
 
-49 
+56 
 	#RSVMEM_MGMT_OFFSET
  (0)
 
 	)
 
-50 
+57 
 	#RSVMEM_EDMA_RECV_BUF_OFFSET
  (
 RSVMEM_MGMT_OFFSET
@@ -597,7 +663,7 @@ RSVMEM_MGMT_SIZE
 
 	)
 
-51 
+58 
 	#RSVMEM_EDMA_SEND_BUF_OFFSET
  (
 RSVMEM_EDMA_RECV_BUF_OFFSET
@@ -607,209 +673,343 @@ RSVMEM_EDMA_RECV_BUF_SIZE
 
 	)
 
-53 
+60 
 IÁ32
  
 	$edma_cÚfig
-( )
+(
+ti81xx_pc›_mem_šfo
+ *
+¡¬t_addr
+)
 
-55 
+62 
 IÁ32
  
 »t
  = 0;
 
-56 
+63 
 dma_út_cÚf
  
 dma_út
 ;
 
-57 
+64 
 dma_buf_šfo
  
 dma_b
 ;
 
-59 #ià
-	`defšed
-(
-INTEGRITY
-è|| defšed(
-THPT
-)
-
-60 
+67 
 dma_út
 .
 aút
- = 256;
+ = 128;
 
-61 
+68 
 dma_út
 .
 bút
- = 4096;
+ = 4096*2;
 
-62 
+69 
 dma_út
 .
 cút
  = 1;
 
-63 
+70 
 dma_út
 .
 mode
  = 1;
 
-65 
+72 
 dma_út
 .
 aút
  = 510;
 
-66 
+73 
 dma_út
 .
 bút
  = 1;
 
-67 
+74 
 dma_út
 .
 cút
  = 1 ;
 
-68 
+75 
 dma_út
 .
 mode
  = 0;
 
-71 
+77 if(
+gPc›dev_edma_fd
+ < 0){
+
+78 
+	`”r_´št
+("edma device‚ot inited.\n");
+
+81 
 »t
  = 
 	`ioùl
 (
-fd_dma
+gPc›dev_edma_fd
 , 
 TI81XX_EDMA_SET_CNT
 , &
 dma_út
 );
 
-72 ià(
+82 ià(
 »t
  < 0) {
 
-73 
+83 
 	`”r_´št
 ("dma count setting ioctl failed\n");
 
-74 
-	`þo£
-(
-gPc›dev_edma_fd
-);
+84 
+dma_”r_ex™
+;
 
-75 
-gPc›dev_edma_fd
- = -1;
+87 
+dma_b
+.
+size
+ = 0x100000;
 
-79 
+88 
+dma_b
+.
+£nd_buf
+ = ()
+¡¬t_addr
+->
+ba£
+ + 
+RSVMEM_EDMA_SEND_BUF_OFFSET
+;
+
+89 
+dma_b
+.
+»cv_buf
+ = ()
+¡¬t_addr
+->
+ba£
+ + 
+RSVMEM_EDMA_RECV_BUF_OFFSET
+;
+
+91 
 »t
  = 
 	`ioùl
 (
-fd_dma
+gPc›dev_edma_fd
 , 
 TI81XX_EDMA_SET_BUF_INFO
 , &
 dma_b
 );
 
-80 ià(
+92 ià(
 »t
  < 0) {
 
-81 
+93 
 	`”r_´št
 ("dma buffer setting ioctl failed\n");
 
-82 
+94 
+dma_”r_ex™
+;
+
+99 
+dma_”r_ex™
+:
+
+100 
 	`þo£
 (
 gPc›dev_edma_fd
 );
 
-83 
+101 
 gPc›dev_edma_fd
  = -1;
 
-89 
+104 
 	}
 }
 
-91 
+107 
+IÁ32
+ 
+	$edma_»cvD©a
+(
+UIÁ32
+ 
+buf_size
+, UIÁ32 
+off£t
+)
+
+109 
+dma_šfo
+ 
+šfo
+;
+
+110 
+»t
+;
+
+112 
+šfo
+.
+size
+ =
+buf_size
+;
+
+113 
+šfo
+.
+u£r_buf
+ =
+gD©a_edma_»cvBuf
+;
+
+114 
+šfo
+.
+de¡
+ = 0;
+
+115 
+šfo
+.
+¤c
+ = (*)(0x20000000 + 
+off£t
+);
+
+117 
+»t
+ = 
+	`ioùl
+(
+gPc›dev_edma_fd
+, 
+TI81XX_EDMA_READM
+, &
+šfo
+);
+
+118 ià(
+»t
+ < 0) {
+
+119 
+	`”r_´št
+("edma ioctl failed,ƒrror in dma dataransfer\n");
+
+123  
+»t
+;
+
+124 
+	}
+}
+
+125 
+IÁ32
+ 
+	$edma_deIn™
+()
+
+127 
+IÁ32
+ 
+»t
+;
+
+128 if(
+gPc›dev_edma_fd
+ < 0)
+
+130 
+	`þo£
+(
+gPc›dev_edma_fd
+);
+
+132 
+	}
+}
+
+134 
 IÁ32
  
 	$g‘_£lfId
 ()
 
-93 
+136 
 IÁ32
  
 »t
  = 0;
 
-95 
+138 
 gS–f_id
  = 
 EP_ID_O
 ;
 
-97  
+140  
 »t
 ;
-p
 
-
-98 
+141 
 	}
 }
 
-100 
+143 
 IÁ32
  
 	$pc›_¦ave_g‘Info
 ()
 
-102 
-ti81xx_pc›_mem_šfo
- 
-¡¬t_addr
-;
-
-103 *
-m­³d_bufãr
+145 *
+m­³d_»sv_bufãr
 ,*
 m­³d_pci
 ;
 
-104 
+146 
 IÁ32
  
 »t
 ;
 
-105 
+147 
 ti81xx_pc›ss_»gs
  
 pc›_»gs
 ;
 
-107 
+149 
 »t
  = 
 	`ioùl
@@ -818,56 +1018,56 @@ gPc›dev_¦ave_fd
 , 
 TI81XX_GET_PCIE_MEM_INFO
 , &
-¡¬t_addr
+gPc›dev_¦ave_rsv_mem
 );
 
-108 ià(
+150 ià(
 »t
  < 0) {
 
-109 
+151 
 	`”r_´št
 ("START_MGMT_AREA ioctl failed\n");
 
-113 ià(!
-¡¬t_addr
+155 ià(!
+gPc›dev_¦ave_rsv_mem
 .
 size
- || (¡¬t_addr.siz< 
+ || (gPc›dev_¦ave_rsv_mem.siz< 
 SIZE_AREA
 )) {
 
-114 ià(!
-¡¬t_addr
+156 ià(!
+gPc›dev_¦ave_rsv_mem
 .
 size
 )
 
-115 
+157 
 	`”r_´št
 ("No„eserved memory‡vailable for PCIe "
 
-118 
+160 
 	`”r_´št
 ("Minimum %#x bytes„equired‡s„eserved "
 
-119 "memÜy, qu™tšg...\n", 
+161 "memÜy, qu™tšg...\n", 
 SIZE_AREA
 );
 
-122 
+164 
 	`debug_´št
 ("INFO: Slave start‡ddress of„eserv_area is…hy--0x%x,size--0x%x\n",
 
-123 
-¡¬t_addr
+165 
+gPc›dev_¦ave_rsv_mem
 .
 ba£
-,¡¬t_addr.
+,gPc›dev_¦ave_rsv_mem.
 size
 );
 
-128 
+170 
 pc›_»gs
 .
 off£t
@@ -877,7 +1077,7 @@ LOCAL_CONFIG_OFFSET
 BAR2
 ;
 
-129 
+171 
 pc›_»gs
 .
 mode
@@ -885,7 +1085,7 @@ mode
 GET_REGS
 ;
 
-130 ià(
+172 ià(
 	`ioùl
 (
 gPc›dev_¦ave_fd
@@ -895,39 +1095,39 @@ TI81XX_ACCESS_REGS
 pc›_»gs
 ) < 0) {
 
-131 
+173 
 	`”r_´št
 ("GET_REGS mode ioctl failed\n");
 
-135 
+177 
 ti81xx_šb_wšdow
  
 š
 ;
 
-136 
+178 
 š
 .
 BAR_num
  = 2;
 
-138 
+180 
 š
 .
 š‹º®_addr
  = 
-¡¬t_addr
+gPc›dev_¦ave_rsv_mem
 .
 ba£
 ;
 
-139 
+181 
 š
 .
 ib_¡¬t_hi
  = 0;
 
-140 
+182 
 š
 .
 ib_¡¬t_lo
@@ -937,7 +1137,7 @@ pc›_»gs
 v®ue
 ;
 
-142 ià(
+184 ià(
 	`ti81xx_£t_šbound
 (&
 š
@@ -945,22 +1145,22 @@ v®ue
 gPc›dev_¦ave_fd
 ) < 0) {
 
-143 
+185 
 	`”r_´št
 ("setting in bound config failed\n");
 
-147 ià(
+189 ià(
 	`ti81xx_’abË_š_Œª¦©iÚ
 (
 gPc›dev_¦ave_fd
 ) < 0) {
 
-148 
+190 
 	`”r_´št
 ("enable in bound failed\n");
 
-151 
-m­³d_bufãr
+193 
+m­³d_»sv_bufãr
  = (*)
 	`mm­
 (0, 
@@ -971,35 +1171,35 @@ PROT_READ
 PROT_WRITE
 ,
 
-152 
+194 
 MAP_SHARED
 , 
 gPc›dev_¦ave_fd
  ,
 
-153 (
+195 (
 off_t
 è
-¡¬t_addr
+gPc›dev_¦ave_rsv_mem
 .
 ba£
 );
 
-154 ià((*)-1 =ð(*è
-m­³d_bufãr
+196 ià((*)-1 =ð(*è
+m­³d_»sv_bufãr
 ) {
 
-155 
+197 
 	`”r_´št
 ("pcie slave mapping dedicated memory fail\n");
 
-156 
+198 
 	`þo£
 (
 gPc›dev_¦ave_fd
 );
 
-160 
+202 
 	`mem£t
 (&
 gPc›dev_¦ave_šfo
@@ -1007,7 +1207,7 @@ gPc›dev_¦ave_šfo
 pc›dev_šfo
 ));
 
-161 
+203 
 gPc›dev_¦ave_šfo
 .
 id
@@ -1015,29 +1215,29 @@ id
 gS–f_id
 ;
 
-162 
+204 
 gPc›dev_¦ave_šfo
 .
 mgmt_buf
  = 
-m­³d_bufãr
+m­³d_»sv_bufãr
 ;
 
-164 
+206 
 UIÁ32
  
 out_addrba£
 ;
 
-165 
+207 
 gPc›dev_mgmt_šfoPŒ
  = (
 mgmt_šfo
  *)
-m­³d_bufãr
+m­³d_»sv_bufãr
 ;
 
-166 if((
+208 if((
 gPc›dev_mgmt_šfoPŒ
 ->
 •_id
@@ -1047,7 +1247,7 @@ gS–f_id
 EP_ID_ALL
 )){
 
-167 
+209 
 out_addrba£
  = 
 gPc›dev_mgmt_šfoPŒ
@@ -1055,19 +1255,19 @@ gPc›dev_mgmt_šfoPŒ
 •_outba£
 ;
 
-169 
+211 
 	`debug_´št
 ("Recvƒp_outbound‡dd¸i 0x%x.\n", 
 out_addrba£
 );
 
-171 
+213 
 IÁ32
  
 ob_size
  = 0;
 
-172 
+214 
 »t
  = 
 	`ioùl
@@ -1079,31 +1279,31 @@ TI81XX_SET_OUTBOUND_SIZE
 ob_size
 );
 
-173 if(
+215 if(
 »t
  < 0){
 
-174 
+216 
 	`”r_´št
 ("Pcie slave ioctl set_outboud_size Error.\n");
 
-175 
+217 
 ERROR
 ;
 
-178 
+220 
 ti81xx_outb_»giÚ
  
 ob
 ;
 
-179 
+221 
 ob
 .
 ob_off£t_hi
  = 0;
 
-180 
+222 
 ob
 .
 ob_off£t_idx
@@ -1111,7 +1311,7 @@ ob_off£t_idx
 out_addrba£
 ;
 
-181 
+223 
 ob
 .
 size
@@ -1119,7 +1319,7 @@ size
 PCIE_RC_RESERVE_MEM_SIZE
 ;
 
-182 
+224 
 »t
  = 
 	`ti81xx_£t_outbound_»giÚ
@@ -1129,47 +1329,47 @@ ob
 gPc›dev_¦ave_fd
 );
 
-183 if(
+225 if(
 »t
  < 0){
 
-184 
+226 
 	`”r_´št
 ("Pcie slave set outboud Error.\n");
 
-185 
+227 
 ERROR
 ;
 
-187 ià(
+229 ià(
 	`ti81xx_’abË_out_Œª¦©iÚ
 (
 gPc›dev_¦ave_fd
 ) < 0) {
 
-188 
+230 
 	`”r_´št
 ("Pcie slaveƒnable outbound failed\n");
 
-189 
+231 
 ERROR
 ;
 
-193 ià(
+235 ià(
 	`ti81xx_’abË_bus_ma¡”
 (
 gPc›dev_¦ave_fd
 ) < 0) {
 
-194 
+236 
 	`”r_´št
 ("Pcie slaveƒnable bus master fail\n");
 
-195 
+237 
 ERROR
 ;
 
-199 
+241 
 m­³d_pci
  = (*)
 	`mm­
@@ -1177,7 +1377,7 @@ m­³d_pci
 PCIE_NON_PREFETCH_SIZE
 ,
 
-200 
+242 
 PROT_READ
 |
 PROT_WRITE
@@ -1185,23 +1385,79 @@ PROT_WRITE
 MAP_SHARED
 ,
 
-201 
+243 
 gPc›dev_¦ave_fd
 , 0x20000000);
 
-202 ià((*)-1 =ð(*è
+244 ià((*)-1 =ð(*è
 m­³d_pci
 ) {
 
-203 
+245 
 	`”r_´št
 ("mapping PCIE_NON_PREFETCH memory fail\n");
 
-204 
+246 
 ERROR
 ;
 
-207 
+249 
+gD©a_edma_»cvBuf
+ = (*)
+	`mm­
+(0, 
+RSVMEM_EDMA_RECV_BUF_SIZE
+,
+PROT_READ
+|
+PROT_WRITE
+,
+
+250 
+MAP_SHARED
+, 
+gPc›dev_¦ave_fd
+,
+
+251 (
+off_t
+)(
+gPc›dev_¦ave_rsv_mem
+.
+ba£
+ + 
+RSVMEM_EDMA_RECV_BUF_OFFSET
+));
+
+252 if(
+gD©a_edma_»cvBuf
+ =ð
+NULL
+){
+
+253 
+	`”r_´št
+("dma_»cvBuàmm­…hyadd¸0x%x E¼Ü.\n", 
+gPc›dev_¦ave_rsv_mem
+.
+ba£
+ + 
+RSVMEM_EDMA_RECV_BUF_OFFSET
+);
+
+254 
+	`munm­
+(
+m­³d_pci
+, 
+PCIE_NON_PREFETCH_SIZE
+);
+
+255 
+ERROR
+;
+
+269 
 gPc›dev_¦ave_šfo
 .
 d©a_buf
@@ -1209,19 +1465,19 @@ d©a_buf
 m­³d_pci
 ;
 
-208 
+270 
 gPc›dev_mgmt_šfoPŒ
 ->
 wr_šdex
  --;
 
-209 
+271 
 gPc›dev_mgmt_šfoPŒ
 ->
 rd_šdex
  ++;
 
-210 
+272 
 gPc›dev_mgmt_šfoPŒ
 ->
 •_š™‹d
@@ -1229,7 +1485,7 @@ gPc›dev_mgmt_šfoPŒ
 TRUE
 ;
 
-212 
+274 
 gMgmt_m­_buf
  = 
 gPc›dev_¦ave_šfo
@@ -1237,7 +1493,7 @@ gPc›dev_¦ave_šfo
 mgmt_buf
 ;
 
-213 
+275 
 gD©a_m­_buf
  = 
 gPc›dev_¦ave_šfo
@@ -1245,49 +1501,59 @@ gPc›dev_¦ave_šfo
 d©a_buf
 ;
 
-216 
+277 
+gD©a_edma_£ndBuf
+ = 
+gPc›dev_¦ave_šfo
+.
+mgmt_buf
+ + 
+RSVMEM_EDMA_SEND_BUF_OFFSET
+;
+
+281 
 ERROR
 :
 
-217 
+282 
 	`munm­
 (
-m­³d_bufãr
+m­³d_»sv_bufãr
 , 
 SIZE_AREA
 );
 
-219 
+284 
 	}
 }
 
-221 
+286 
 IÁ32
  
 	$pc›_¦ave_š™
 ()
 
-223 
+288 
 IÁ32
  
 »t
  ;
 
-224 
+289 
 »t
  = 
 	`g‘_£lfId
 ();
 
-225 if(
+290 if(
 »t
  < 0){
 
-226 
+291 
 	`”r_´št
 ("Dev get selfid Error.\n");
 
-230 
+295 
 gPc›dev_¦ave_fd
  = 
 	`Ý’
@@ -1297,45 +1563,99 @@ PCIE_SLAVE_DEVICE
 O_RDWR
 );
 
-231 if(
+296 if(
 gPc›dev_¦ave_fd
  < 0){
 
-232 
+297 
 	`”r_´št
 ("O³ÀPc›dev sÏv% E¼Ü.\n",
 PCIE_SLAVE_DEVICE
 );
 
-236 
+301 
 »t
  = 
 	`pc›_¦ave_g‘Info
 ();
 
-237 if(
+302 if(
 »t
  < 0){
 
-238 
+303 
 	`”r_´št
 ("Pcie configure Error.\n");
 
-239 
+304 
+š™_”r_ex™
+;
+
+306 
+	`debug_´št
+("pcie slave get info successfully.\n");
+
+308 
+»t
+ = 
+	`edma_š™
+();
+
+309 if(
+»t
+ < 0){
+
+310 
+	`”r_´št
+("edma init Error.\n");
+
+311 
+š™_”r_ex™
+;
+
+313 
+	`debug_´št
+("edma init OK.\n");
+
+315 
+»t
+ = 
+	`edma_cÚfig
+(&
+gPc›dev_¦ave_rsv_mem
+);
+
+316 if(
+»t
+ < 0){
+
+317 
+	`”r_´št
+("edma config Error.\n");
+
+318 
+	`edma_deIn™
+();
+
+319 
+š™_”r_ex™
+;
+
+323 
+š™_”r_ex™
+:
+
+324 
 	`þo£
 (
 gPc›dev_¦ave_fd
 );
 
-242 
-	`´štf
-("pcie slave get info successfully.\n");
-
-245 
+327 
 	}
 }
 
-247 *
+329 *
 	$pc›_¦ave_»qD©abuf
 (
 UIÁ32
@@ -1343,33 +1663,33 @@ UIÁ32
 buf_size
 )
 
-249 
+331 
 IÁ32
  
 »t
 ;
 
-250 *
+332 *
 ±r_tmp
 ;
 
-252 if(
+334 if(
 buf_size
  >ð
 PCIE_RC_RESERVE_MEM_SIZE
 ){
 
-253 
+335 
 	`”r_´št
 ("PCI sÏv»quœsiztoØÏrge,Maxsiz[0x%x]",
 PCIE_RC_RESERVE_MEM_SIZE
 );
 
-254  
+336  
 NULL
 ;
 
-257 
+339 
 gD©abuf_h—dPŒ
  = (
 pc›dev_d©abuf_h—d
@@ -1377,7 +1697,7 @@ pc›dev_d©abuf_h—d
 gD©a_m­_buf
 ;
 
-259 
+341 
 gD©a_buf
  = (*)(
 gD©a_m­_buf
@@ -1385,33 +1705,47 @@ gD©a_m­_buf
 pc›dev_d©abuf_h—d
  ));
 
-260 
+343 #ifdeà
+EDMA_TRANSMISSION
+
+
+344 
+±r_tmp
+ = 
+gD©a_edma_»cvBuf
+;
+
+345 
+	`debug_´št
+("edma databuf…ointer„equred.\n");
+
+347 
 ±r_tmp
  = 
 gD©a_buf
 ;
 
-262  
+350  
 ±r_tmp
 ;
 
-263 
+351 
 	}
 }
 
-265 
+353 
 	#DATA_WAIT_TIMEOUT
  (3000)
 
 	)
 
-267 
+355 
 UIÁ32
  
 	ggF¿me_couÁ_´ev
  = 0xffffffff;
 
-270 
+358 
 IÁ32
  
 	$pc›_¦ave_»cvD©a
@@ -1425,13 +1759,13 @@ buf_size
 timeout
 )
 
-272 
+360 
 IÁ32
  
 »t
 ;
 
-273 
+361 
 UIÁ32
  
 i
@@ -1439,28 +1773,28 @@ i
 time_out
 ;
 
-274 
+362 
 pc›dev_d©abuf_h—d
  
 d©abuf_h—d
 ;
 
-276 if(
+364 if(
 timeout
  == 0)
 
-277 
+365 
 time_out
  = 
 DATA_WAIT_TIMEOUT
 *10;
 
-279 
+367 
 time_out
  =ime_out*10;
 
-281 
-	`memýy
+370 
+	`memýy_ÃÚ
 ((*)&
 d©abuf_h—d
 , 
@@ -1469,7 +1803,7 @@ gD©abuf_h—dPŒ
 pc›dev_d©abuf_h—d
 ));
 
-283 if((
+372 if((
 d©abuf_h—d
 .
 d©a_to_id
@@ -1479,7 +1813,7 @@ gS–f_id
 EP_ID_ALL
 )){
 
-284 if((
+373 if((
 gF¿me_couÁ_´ev
  !ð
 d©abuf_h—d
@@ -1489,31 +1823,83 @@ d©abuf_h—d
 wr_šdex
  > 0))
 
-287 if(
+376 if(
 i
  !ð
 time_out
 )
 
-288 
+377 
 i
  ++;
 
-291 
+380 
 	`u¦“p
 (100);
 
-294 if(
+383 if(
 i
  =ð
 time_out
 ){
 
-295 
+384 
 	`”r_´št
 ("Pcie slave„ecieve data Error,Timeout.\n");
 
-310 
+388 #ifdeà
+EDMA_TRANSMISSION
+
+
+389 
+»t
+ = 
+	`edma_»cvD©a
+(
+d©abuf_h—d
+.
+buf_size
+, (
+pc›dev_d©abuf_h—d
+));
+
+390 if(
+»t
+ < 0){
+
+391 
+	`”r_´št
+("edma„ecv data Error.\n");
+
+394 
+buf
+ = 
+gD©a_edma_»cvBuf
+;
+
+395 
+»t
+ = 
+d©abuf_h—d
+.
+buf_size
+;
+
+397 
+buf
+ = 
+gD©a_buf
+;
+
+398 
+»t
+ = 
+d©abuf_h—d
+.
+buf_size
+;
+
+401 
 gF¿me_couÁ_´ev
  = 
 d©abuf_h—d
@@ -1521,14 +1907,14 @@ d©abuf_h—d
 äame_id
 ;
 
-312 
+402 
 d©abuf_h—d
 .
 wr_šdex
  --;
 
-313 
-	`memýy
+403 
+	`memýy_ÃÚ
 ((*)
 gD©abuf_h—dPŒ
 , (*)&
@@ -1537,23 +1923,145 @@ d©abuf_h—d
 pc›dev_d©abuf_h—d
 ));
 
-315 
-buf
- = 
-gD©a_buf
+404  
+»t
 ;
 
-317  
-d©abuf_h—d
-.
-buf_size
-;
-
-318 
+405 
 	}
 }
 
-320 
+407 
+IÁ32
+ 
+	$pc›_¦ave_£ndCmd
+(*
+¬g
+)
+
+410 ifÐ
+	`ti81xx_£nd_msi
+(
+NULL
+, 
+gPc›dev_¦ave_fd
+) < 0){
+
+411 
+	`”r_´št
+("send msi Error.\n");
+
+415 
+	}
+}
+
+417 
+IÁ32
+ 
+	$pc›_¦ave_wa™Cmd
+(*
+¬g
+)
+
+419 
+i
+ = 0;
+
+420 
+»t
+;
+
+421 
+pÞlfd
+ 
+pÞl_fd
+;
+
+422 
+pÞl_fd
+.
+ev’ts
+ =ð
+POLLIN
+;
+
+423 
+pÞl_fd
+.
+fd
+ = 
+gPc›dev_¦ave_fd
+;
+
+425 
+šŒ_úŒ
+;
+
+428 
+	`´štf
+("RC start„ecv msi.\n");
+
+430 
+»t
+ = 
+	`pÞl
+(&
+pÞl_fd
+, 1, 3000);
+
+431 if(Ð
+»t
+ =ð
+POLLIN
+è|| (
+pÞl_fd
+.
+»v’ts
+ == POLLIN)){
+
+432 
+	`debug_´št
+("recv msi.\n");
+
+433 
+	`´štf
+("%s:„ec›ved msi-%d.\n", 
+__func__
+, 
+i
+);
+
+436 
+	`ioùl
+(
+gPc›dev_¦ave_fd
+, 
+TI81XX_GET_INTR_CNTR
+, &
+šŒ_úŒ
+);
+
+437 
+	`´štf
+("Pc›-%d: wa™ ms˜»t-0x%x, iÁ”ru± occu¸times-%dimeout-%d.\n", 
+gS–f_id
+, 
+»t
+, 
+šŒ_úŒ
+, 
+i
+);
+
+438 
+i
+ ++;
+
+442 
+	}
+}
+
+444 
 IÁ32
  
 	$pc›_¦ave_g‘CurTime
@@ -1563,23 +2071,23 @@ UIÁ32
 cur_jiff›s
 )
 
-322 
+446 
 IÁ32
  
 »t
 ;
 
-323 
+447 
 UIÁ32
  
 cur_time
 ;
 
-324 if(
+448 if(
 gPc›dev_¦ave_fd
  < 0)
 
-327 
+451 
 »t
  = 
 	`ioùl
@@ -1591,41 +2099,41 @@ TI81XX_CUR_TIME
 cur_time
 );
 
-328 if(
+452 if(
 »t
  < 0){
 
-329 
+453 
 	`”r_´št
 ("Pcie slave ioctl TI81XX_CUR_TIME Error.\n");
 
-333 *
+457 *
 cur_jiff›s
  = 
 cur_time
 ;
 
-336 
+460 
 	}
 }
 
-338 
+462 
 IÁ32
  
 	$pc›_¦ave_deIn™
 ()
 
-340 
+464 
 IÁ32
  
 »t
 ;
 
-342 if(
+466 if(
 gPc›dev_¦ave_fd
  < 0)
 
-345 
+469 
 	`munm­
 (
 gMgmt_m­_buf
@@ -1633,7 +2141,7 @@ gMgmt_m­_buf
 SIZE_AREA
 );
 
-347 
+471 
 	`munm­
 (
 gD©a_m­_buf
@@ -1641,13 +2149,19 @@ gD©a_m­_buf
 PCIE_NON_PREFETCH_SIZE
 );
 
-349 
+473 
+	`þo£
+(
+gPc›dev_edma_fd
+);
+
+474 
 	`þo£
 (
 gPc›dev_¦ave_fd
 );
 
-352 
+477 
 	}
 }
 
@@ -1711,65 +2225,21 @@ IÁ32
 pc›_¦ave_deIn™
 ();
 
-	@ti81xx_ep_flymake.h
-
-2 #iâdeà
-__TI81XX_EP_H__
-
-
-3 
-	#__TI81XX_EP_H__
-
-
-	)
-
-5 
-	~"pc›_¡d.h
-"
-
-7 
+18 
 IÁ32
  
-pc›_¦ave_š™
-();
-
-9 *
-pc›_¦ave_»qD©abuf
-(
-UIÁ32
- 
-buf_size
+pc›_¦ave_£ndCmd
+(*
+¬g
 );
 
-12 
+20 
 IÁ32
  
-pc›_¦ave_»cvD©a
-(*
-buf
-, 
-UIÁ32
- 
-buf_size
-, UIÁ32 
-timeout
+pc›_¦ave_wa™Cmd
+(*
+¬g
 );
-
-14 
-IÁ32
- 
-pc›_¦ave_g‘CurTime
-(
-UIÁ32
- *
-cur_jiff›s
-);
-
-16 
-IÁ32
- 
-pc›_¦ave_deIn™
-();
 
 	@ti81xx_ep_lib.c
 
@@ -2217,6 +2687,42 @@ TI81XX_GET_OUTBOUND_STATUS
 	}
 }
 
+200 
+	$ti81xx_£nd_msi
+(*
+¬g
+, 
+fd
+)
+
+202 
+»t
+ = 0;
+
+203 
+ti81xx_msi_šfo
+ 
+msi
+;
+
+205 
+»t
+ = 
+	`ioùl
+(
+fd
+, 
+TI81XX_SEND_MSI
+, 0);
+
+206 ifÐ
+»t
+ < 0){
+
+211 
+	}
+}
+
 	@ti81xx_ep_lib.h
 
 37 #iâdeà
@@ -2609,6 +3115,14 @@ ti81xx_þ—r_outbound_m­pšg
 ti81xx_outb_»giÚ
  *
 ob
+, 
+fd
+);
+
+130 
+ti81xx_£nd_msi
+(*
+¬g
 , 
 fd
 );
@@ -4176,28 +4690,28 @@ fd
 26 
 IÁ32
  
-	ggPc›_fd
+	ggPc›dev_ma¡”_fd
  = -1;
 
-28 *
-	ggMgmt_buf
- = 
-NULL
-;
-
 29 *
-	ggD©a_buf
+	ggD©aBuf_ba£
  = 
 NULL
 ;
 
-31 
+30 *
+	ggD©aBuf_»cvS’d
+ = 
+NULL
+;
+
+32 
 IÁ32
  
 	ggEp_nums
  = 0;
 
-33 
+34 
 pc›dev_šfo
  
 	ggPc›dev_šfo
@@ -4205,7 +4719,7 @@ pc›dev_šfo
 PCIE_EP_MAX_NUMBER
 ];
 
-34 
+35 
 mgmt_šfo
  *
 	ggMgmt_šfoPŒ
@@ -4213,19 +4727,19 @@ mgmt_šfo
 PCIE_EP_MAX_NUMBER
 ];
 
-35 
+36 
 pc›dev_d©abuf_h—d
  *
 	ggD©abuf_h—dPŒ
 ;
 
-38 
+39 
 IÁ32
  
 	$g‘_pc›_subsys_šfo
 ()
 
-40 
+41 
 IÁ32
  
 »t
@@ -4235,15 +4749,17 @@ i
 j
 ;
 
-41 
+42 
 pci_sys_šfo
  *
 ¡¬t
+=
+NULL
 ,*
 ‹mp
 ;
 
-43 
+44 
 gEp_nums
  = 
 	`g‘_deviûs
@@ -4251,25 +4767,25 @@ gEp_nums
 ¡¬t
 );
 
-44 ià(
+45 ià(
 gEp_nums
  < 0) {
 
-45 
+46 
 	`”r_´št
 ("fetching…ci sub system info on„c fails\n");
 
-48 
+49 
 	`debug_´št
 ("nØoàEp š sy¡em i %d.\n", 
 gEp_nums
 );
 
-50 
+51 
 i
  = 0;
 
-51 
+52 
 ‹mp
  = 
 ¡¬t
@@ -4279,11 +4795,11 @@ NULL
 Ãxt
 ) {
 
-52 
+53 
 j
  = 0; j < 6; j ++){
 
-53 if((
+54 if((
 ‹mp
 ->
 »s_v®ue
@@ -4291,7 +4807,7 @@ j
 j
  + 1][0] != 0) && (temp->res_value[j + 1][1] != 0)){
 
-54 
+55 
 gPc›dev_šfo
 [
 i
@@ -4303,7 +4819,7 @@ j
 ‹mp
 ->res_value[j + 1][0];
 
-55 
+56 
 gPc›dev_šfo
 [
 i
@@ -4315,11 +4831,11 @@ j
 ‹mp
 ->res_value[j + 1][1];
 
-56 
+57 
 	`debug_´št
 ("Res‡ddress of EP-%d is 0x%x size is 0x%x\n",
 
-57 
+58 
 i
 ,
 ‹mp
@@ -4329,17 +4845,17 @@ i
 j
 ][0],temp->res_value[j][1]);
 
-60 
+61 
 i
  ++;
 
-63 
+64 
 i
  = 0; i < 
 gEp_nums
 ; i ++){
 
-65 
+66 
 gPc›dev_šfo
 [
 i
@@ -4351,7 +4867,7 @@ mgmt_buf
 »s_v®ue
 [2][1],
 
-66 
+67 
 PROT_READ
  | 
 PROT_WRITE
@@ -4359,8 +4875,8 @@ PROT_WRITE
 MAP_SHARED
 ,
 
-67 
-gPc›_fd
+68 
+gPc›dev_ma¡”_fd
 , (
 off_t
 è
@@ -4371,7 +4887,7 @@ i
 »s_v®ue
 [2][0]);
 
-68 if((*)-1 =ð(*)
+69 if((*)-1 =ð(*)
 gPc›dev_šfo
 [
 i
@@ -4379,11 +4895,11 @@ i
 mgmt_buf
 ){
 
-69 
+70 
 	`”r_´št
 ("Mmap Ep-%d Bar 0x%x memory Error.\n",
 
-70 
+71 
 i
 , 
 gPc›dev_šfo
@@ -4391,11 +4907,11 @@ gPc›dev_šfo
 »s_v®ue
 [2][0]);
 
-71 
+72 
 ”rÜ_ex™
 ;
 
-73 
+74 
 	`mem£t
 (
 gPc›dev_šfo
@@ -4407,7 +4923,7 @@ mgmt_buf
 »s_v®ue
 [2][1]);
 
-74 
+75 
 gMgmt_šfoPŒ
 [
 i
@@ -4419,15 +4935,15 @@ gPc›dev_šfo
 mgmt_buf
 );
 
-78 
+79 
 ”rÜ_ex™
 :
 
-79 
+80 
 i
 ; i < 0; i --){
 
-80 
+81 
 	`munm­
 (
 gPc›dev_šfo
@@ -4439,29 +4955,29 @@ mgmt_buf
 »s_v®ue
 [2][1]);
 
-83 
+84 
 	}
 }
 
-86 
+87 
 IÁ32
  
 	$pc›Rc_š™
 ()
 
-88 
+89 
 ti81xx_¡¬t_addr_¬—
  
 ¡¬t_addr
 ;
 
-89 
+90 
 IÁ32
  
 s32R‘
  = 0;
 
-90 
+91 
 UIÁ32
  
 i
@@ -4469,8 +4985,8 @@ i
 j
 ;
 
-91 
-gPc›_fd
+92 
+gPc›dev_ma¡”_fd
  = 
 	`Ý’
 (
@@ -4479,45 +4995,45 @@ PCIE_RC_DEVICE
 O_RDWR
 );
 
-92 if(
-gPc›_fd
+93 if(
+gPc›dev_ma¡”_fd
  < 0){
 
-93 
+94 
 	`”r_´št
 ("O³Àdeviû % E¼Ü.\n", 
 PCIE_RC_DEVICE
 );
 
-97 
+98 
 s32R‘
  = 
 	`ioùl
 (
-gPc›_fd
+gPc›dev_ma¡”_fd
 , 
 TI81XX_RC_START_ADDR_AREA
 , &
 ¡¬t_addr
 );
 
-98 ià(
+99 ià(
 s32R‘
  < 0) {
 
-99 
+100 
 	`”r_´št
 ("ioctl START_ADDR failed\n");
 
-100 
+101 
 ERROR
 ;
 
-102 
+103 
 	`debug_´št
 ("RC‡ddress of„eserve mem is virt--0x%x…hy--0x%x.\n",
 
-103 
+104 
 ¡¬t_addr
 .
 ¡¬t_addr_vœt
@@ -4525,15 +5041,15 @@ ERROR
 ¡¬t_addr_phy
 );
 
-105 
-gD©a_buf
+106 
+gD©aBuf_ba£
  = 
 	`mm­
 (0,
 PCIE_RC_RESERVE_MEM_SIZE
 ,
 
-106 
+107 
 PROT_READ
  | 
 PROT_WRITE
@@ -4541,8 +5057,8 @@ PROT_WRITE
 MAP_SHARED
 ,
 
-107 
-gPc›_fd
+108 
+gPc›dev_ma¡”_fd
 , (
 off_t
 )
@@ -4551,55 +5067,63 @@ off_t
 ¡¬t_addr_phy
 );
 
-109 ià((*)-1 =ð(*è
-gD©a_buf
+110 ià((*)-1 =ð(*è
+gD©aBuf_ba£
 ) {
 
-110 
+111 
 	`”r_´št
 ("RC MMAP of„eserve memory fail\n");
 
-111 
+112 
 ERROR
 ;
 
-113 
+114 
 	`mem£t
 (
-gD©a_buf
+gD©aBuf_ba£
 , 0, 
 PCIE_RC_RESERVE_MEM_SIZE
 );
 
-116 
+115 
+gD©aBuf_»cvS’d
+ = (*)(
+gD©aBuf_ba£
+ + (
+pc›dev_d©abuf_h—d
+ ));
+
+118 
 s32R‘
  = 
 	`g‘_pc›_subsys_šfo
 ();
 
-117 if(
+119 if(
 s32R‘
  < 0){
 
-118 
+120 
 	`”r_´št
 ("Get…cie subsys info Error.\n");
 
-119 
+121 
 ERROR
 ;
 
-121 
+123 
 	`´štf
 ("Pcie get subsys info successfully.\n");
 
-123 
+125 
 i
  = 0; i < 
 gEp_nums
 ; i ++){
 
-124 
+126 
 gMgmt_šfoPŒ
 [
 i
@@ -4609,7 +5133,7 @@ i
 EP_ID_ALL
 ;
 
-125 
+127 
 gMgmt_šfoPŒ
 [
 i
@@ -4617,7 +5141,7 @@ i
 wr_šdex
  = 1;
 
-126 
+128 
 gMgmt_šfoPŒ
 [
 i
@@ -4629,33 +5153,37 @@ i
 ¡¬t_addr_phy
 ;
 
-128 
+130 
 	#INIT_TIMEOUT
  (3*100000)
 
 	)
 
-129 
+131 
 j
  = 0;
 
-130 
+132 
+	`´štf
+("Wait slave„espond.\n");
+
+133 
 j
-++ < 
+ < 
 INIT_TIMEOUT
 ){
 
-131 
+134 
 	`u¦“p
 (10);
 
-132 
+135 
 i
  = 0; i < 
 gEp_nums
 ; i ++){
 
-133 if(
+136 if(
 gMgmt_šfoPŒ
 [
 i
@@ -4665,53 +5193,57 @@ i
 TRUE
 )
 
-136 if(
+139 if(
 i
  =ð
 gEp_nums
 )
 
-140 if(
+141 
+j
+++;
+
+144 if(
 INIT_TIMEOUT
  =ð
 j
 ){
 
-141 
+145 
 	`”r_´št
 ("Wait PCIe subsys initimeout.\n");
 
-146 
+150 
 ERROR
 :
 
-147 
+151 
 	`munm­
 (
-gD©a_buf
+gD©aBuf_ba£
 , 
 PCIE_RC_RESERVE_MEM_SIZE
 );
 
-148 
+152 
 	`þo£
 (
-gPc›_fd
+gPc›dev_ma¡”_fd
 );
 
-149 
-gPc›_fd
+153 
+gPc›dev_ma¡”_fd
  = -1;
 
-150  
+154  
 s32R‘
 ;
 
-151 
+155 
 	}
 }
 
-154 *
+158 *
 	$OSA_pciReqD©aBuf
 (
 UIÁ32
@@ -4719,41 +5251,41 @@ UIÁ32
 buf_size
 )
 
-156 
+160 
 IÁ32
  
 »t
  = 0;
 
-157 *
+161 *
 ±r_tmp
 ;
 
-158 if(
+162 if(
 buf_size
  >ð
 PCIE_RC_RESERVE_MEM_SIZE
 ){
 
-159 
+163 
 	`”r_´št
 ("RequœbuàsiznÙ‡v®ŸbË,Maxsiz i 0x%x.",
 PCIE_RC_RESERVE_MEM_SIZE
 );
 
-160  
+164  
 NULL
 ;
 
-163 
+167 
 gD©abuf_h—dPŒ
  = (
 pc›dev_d©abuf_h—d
  *)
-gD©a_buf
+gD©aBuf_ba£
 ;
 
-164 
+168 
 	`mem£t
 (
 gD©abuf_h—dPŒ
@@ -4761,29 +5293,27 @@ gD©abuf_h—dPŒ
 pc›dev_d©abuf_h—d
 ));
 
-166 
+170 
 ±r_tmp
- = (*)(
-gD©a_buf
- + (
-pc›dev_d©abuf_h—d
- ));
+ = 
+gD©aBuf_»cvS’d
+;
 
-168  
+172  
 ±r_tmp
 ;
 
-169 
+173 
 	}
 }
 
-170 
+174 
 UIÁ32
  
 	gäame_couÁ
  = 0;
 
-173 
+177 
 IÁ32
  
 	$OSA_pc›S’dD©a
@@ -4799,13 +5329,13 @@ pc›dev_id
 timeout
 )
 
-175 
+179 
 IÁ32
  
 »t
 ;
 
-176 
+180 
 UIÁ32
  
 i
@@ -4813,57 +5343,67 @@ i
 time_out
 ;
 
-177 if(
+182 if(
 buf_size
  >ð
 PCIE_RC_RESERVE_MEM_SIZE
 ){
 
-178 
+183 
 	`”r_´št
 ("Send buf†engthoo†arge.\n");
 
-181 if(
+186 if(
 timeout
  == 0)
 
-182 
+187 
 time_out
  = 
 INIT_TIMEOUT
 ;
 
-184 
+189 
 time_out
  = 
 timeout
  * 500;
 
-186 
+191 
 gD©abuf_h—dPŒ
 ->
 wr_šdex
  != 0){
 
-187 
+192 
 	`u¦“p
 (2);
 
-188 
+193 
 i
  ++;
 
-189 if(
+194 if(
 i
  =ð
 time_out
 ){
 
-190 
+195 
 	`”r_´št
 ("RC send data Timeout,No free buf.\n");
 
-195 
+200 
+	`memýy_ÃÚ
+(
+gD©aBuf_»cvS’d
+, 
+d©a_±r
+, 
+buf_size
+);
+
+202 
 gD©abuf_h—dPŒ
 ->
 d©a_äom_id
@@ -4871,7 +5411,7 @@ d©a_äom_id
 RC_ID
 ;
 
-196 
+203 
 gD©abuf_h—dPŒ
 ->
 äame_id
@@ -4879,7 +5419,7 @@ gD©abuf_h—dPŒ
 äame_couÁ
 ;
 
-197 
+204 
 gD©abuf_h—dPŒ
 ->
 rd_šdex
@@ -4887,19 +5427,19 @@ rd_šdex
 gEp_nums
 ;
 
-198 
+205 
 gD©abuf_h—dPŒ
 ->
 buf_size
  = buf_size;
 
-200 if(
+207 if(
 pc›dev_id
  =ð
 EP_ID_ALL
 ){
 
-201 
+208 
 gD©abuf_h—dPŒ
 ->
 d©a_to_id
@@ -4907,7 +5447,7 @@ d©a_to_id
 EP_ID_ALL
 ;
 
-202 
+209 
 gD©abuf_h—dPŒ
 ->
 wr_šdex
@@ -4915,7 +5455,7 @@ wr_šdex
 gEp_nums
  ;
 
-204 
+211 
 gD©abuf_h—dPŒ
 ->
 d©a_to_id
@@ -4923,33 +5463,165 @@ d©a_to_id
 pc›dev_id
 ;
 
-205 
+212 
 gD©abuf_h—dPŒ
 ->
 wr_šdex
  = 1;
 
-208 if(
+215 if(
 äame_couÁ
  != 0xfffffff0)
 
-209 
+216 
 äame_couÁ
  ++;
 
-211 
+218 
 äame_couÁ
  = 0;
 
-213  
+220  
 buf_size
 ;
 
-214 
+221 
 	}
 }
 
-217 
+222 
+IÁ32
+ 
+	$OSA_pc›S’dCmd
+(*
+¬g
+)
+
+224 
+»t
+;
+
+225 
+msi_addr
+;
+
+226 
+msi_addr
+ = 0x21800000;
+
+227 
+»t
+ = 
+	`ioùl
+(
+gPc›dev_ma¡”_fd
+, 
+TI81XX_RC_SEND_MSI
+, 
+msi_addr
+);
+
+228 if(
+»t
+ < 0){
+
+229 
+	`debug_´št
+("RC s’d ms˜E¼Ü,‡ddr-0x%x", 
+msi_addr
+);
+
+233 
+	}
+}
+
+234 
+IÁ32
+ 
+	$OSA_pc›Wa™Cmd
+(*
+¬g
+)
+
+236 
+i
+ = 0;
+
+237 
+»t
+;
+
+238 
+pÞlfd
+ 
+pÞl_fd
+;
+
+239 
+pÞl_fd
+.
+ev’ts
+ =ð
+POLLIN
+;
+
+240 
+pÞl_fd
+.
+fd
+ = 
+gPc›dev_ma¡”_fd
+;
+
+243 
+	`´štf
+("RC start„ecv msi.\n");
+
+245 
+»t
+ = 
+	`pÞl
+(&
+pÞl_fd
+, 1, 3000);
+
+246 if(Ð
+»t
+ =ð
+POLLIN
+è|| (
+pÞl_fd
+.
+»v’ts
+ == POLLIN)){
+
+247 
+	`debug_´št
+("recv msi.\n");
+
+248 
+	`´štf
+("%s:„ec›ved msi-%d.\n", 
+__func__
+,
+i
+);
+
+251 
+	`´štf
+("wa™ msi,imeout-%d.\n", 
+i
+);
+
+252 
+i
+ ++;
+
+256 
+	}
+}
+
+259 
 IÁ32
  
 	$OSA_pc›RecvD©a
@@ -4961,35 +5633,35 @@ UIÁ32
 buf_size
 )
 
-219 
+261 
 IÁ32
  
 »t
 ;
 
-220 
+262 
 UIÁ32
  
 i
  = 0;
 
-221 
+263 
 UIÁ32
  
 »cv_size
 ;
 
-223 if(
+265 if(
 buf_size
  >ð
 PCIE_RC_RESERVE_MEM_SIZE
 ){
 
-224 
+266 
 	`”r_´št
 ("Recv buf†engthoo†arge.\n");
 
-228 
+270 
 gD©abuf_h—dPŒ
 ->
 d©a_id
@@ -4997,25 +5669,25 @@ d©a_id
 RC_ID
 ){
 
-229 
+271 
 	`u¦“p
 (2);
 
-230 
+272 
 i
  ++;
 
-231 if(
+273 if(
 i
  =ð
 INIT_TIMEOUT
 ){
 
-232 
+274 
 	`”r_´št
 ("RC Recv data Timeout,No Data buf.\n");
 
-237 
+279 
 gD©abuf_h—dPŒ
 ->
 d©a_id
@@ -5023,7 +5695,7 @@ d©a_id
 INVALID_ID
 ;
 
-238 
+280 
 »cv_size
  = 
 gD©abuf_h—dPŒ
@@ -5031,43 +5703,43 @@ gD©abuf_h—dPŒ
 buf_size
 ;
 
-240  
+282  
 »cv_size
 ;
 
-241 
+283 
 	}
 }
 
-244 
+286 
 IÁ32
  
 	$pc›Rc_deIn™
 ()
 
-246 
+288 
 IÁ32
  
 »t
 ;
 
-247 
+289 
 IÁ32
  
 i
 ;
 
-248 if(
-gPc›_fd
+290 if(
+gPc›dev_ma¡”_fd
  < 0)
 
-250 
+292 
 i
  = 0; i < 
 gEp_nums
 ; i++){
 
-251 
+293 
 	`munm­
 (
 gPc›dev_šfo
@@ -5079,15 +5751,15 @@ mgmt_buf
 »s_v®ue
 [2][1]);
 
-253 
+295 
 	`munm­
 (
-gD©a_buf
+gD©aBuf_ba£
 , 
 PCIE_RC_RESERVE_MEM_SIZE
 );
 
-255 
+297 
 	}
 }
 
@@ -5143,57 +5815,21 @@ IÁ32
 pc›Rc_deIn™
 ();
 
-	@ti81xx_rc_lib_flymake.h
-
-2 #iâdeà
-__TI81XX_RC_LIB_H__
-
-
-3 
-	#__TI81XX_RC_LIB_H__
-
-
-	)
-
-5 
-	~"pc›_¡d.h
-"
-
-7 
+16 
 IÁ32
  
-pc›Rc_š™
-();
-
-9 *
-OSA_pciReqD©aBuf
-(
-UIÁ32
- 
-buf_size
+OSA_pc›Wa™Cmd
+(*
+¬g
 );
 
-12 
+18 
 IÁ32
  
-OSA_pc›S’dD©a
-(*
-d©a_±r
-, 
-UIÁ32
- 
-buf_size
-,UIÁ32 
-pc›dev_id
-, UIÁ32 
-timeout
+OSA_pc›S’dCmd
+(*
+¬g
 );
-
-14 
-IÁ32
- 
-pc›Rc_deIn™
-();
 
 	@/usr/include/ctype.h
 
@@ -30208,21 +30844,20 @@ __END_DECLS
 .
 1
 /usr/include
-36
-717
+35
+682
 debug_msg.h
 pcie_common.h
 pcie_std.h
+sysdep.h
 ti81xx_ep.c
 ti81xx_ep.h
-ti81xx_ep_flymake.h
 ti81xx_ep_lib.c
 ti81xx_ep_lib.h
 ti81xx_pci_info.c
 ti81xx_pci_info.h
 ti81xx_rc_lib.c
 ti81xx_rc_lib.h
-ti81xx_rc_lib_flymake.h
 /usr/include/ctype.h
 /usr/include/errno.h
 /usr/include/fcntl.h

@@ -167,12 +167,12 @@ int main(int argc, char *argv[])
 	struct ti81xx_bar_info bar;
 	char dev_name[128] = "/dev/";
 
-	if (argc < 4) {
+	if (argc < 5) {
 		printf("Usage: [linux-prompt]# "
 			"./saBootApp.o "
-			"<u-boot-binary> <bootscript> <kernel> [ramdisk]\n");
+			"<pcie_ep_dev> <u-boot-binary> <bootscript> <kernel> [ramdisk]\n");
 		printf("\teg: # ./saBootApp.o "
-			"u-boot.bin boot.scr uImage ramdisk.ext2\n");
+			"/dev/ti81xx_pcie_epN u-boot.bin boot.scr uImage ramdisk.ext2\n");
 		printf("\t*** Note: For booting TI814X devices, 1st stage "
 				"U-Boot binary named MLO needs to be present "
 				"in current directory and u-boot binary "
@@ -181,12 +181,14 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	strcat(dev_name, TI81XX_PCIE_MODFILE);
+	/* strcat(dev_name, TI81XX_PCIE_MODFILE); wiscom*/
+    strcpy(dev_name, argv[1]);
 	dev_desc = open(dev_name, O_RDWR);
 	if (-1 == dev_desc) {
 		printf("Device \"%s\" could not opened\n", dev_name);
 		return -1;
 	}
+    printf("Open %s success.\n", dev_name);
 
 	ioctl(dev_desc, TI81XX_PCI_GET_DEVICE_ID, &device_id);
 
@@ -228,8 +230,8 @@ int main(int argc, char *argv[])
 			close(dev_desc);
 			return -1;
 		}
-        printf("%s loaded at 0x%08x.\n", argv[1], bar.addr);
-		result = map_file(argv[1], bar.num, TI81XX_EP_UBOOT_OFFSET,
+        printf("%s loaded at 0x%08x.\n", argv[2], bar.addr);
+		result = map_file(argv[2], bar.num, TI81XX_EP_UBOOT_OFFSET,
 				TI81XX_EP_UBOOT_MAX_SIZE);
 		if (result) {
 			printf("Mapping of uBoot to BAR1 (OCMC1) failed\n");
@@ -269,7 +271,7 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 
-		result = map_file(argv[1], bar.num, TI81XX_EP_UBOOT_OFFSET,
+		result = map_file(argv[2], bar.num, TI81XX_EP_UBOOT_OFFSET,
 				TI81XX_EP_UBOOT_MAX_SIZE);
 		if (result) {
 			printf("Mapping of uBoot to BAR1 (OCMC1) failed\n");
@@ -287,8 +289,8 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-    printf("%s loaded at 0x%08x.\n", argv[2], bar.addr);
-	result = map_file(argv[2], bar.num, TI81XX_EP_BOOTSCRIPT_OFFSET,
+    printf("%s loaded at 0x%08x.\n", argv[3], bar.addr);
+	result = map_file(argv[3], bar.num, TI81XX_EP_BOOTSCRIPT_OFFSET,
 			TI81XX_EP_BOOTSCRIPT_MAX_SIZE);
 	if (result) {
 		printf("Mapping of boot script to BAR2 (DDR) failed\n");
@@ -305,8 +307,8 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-    printf("%s loaded at 0x%08x.\n", argv[3], bar.addr);
-	result = map_file(argv[3], bar.num, TI81XX_EP_KERNEL_OFFSET,
+    printf("%s loaded at 0x%08x.\n", argv[4], bar.addr);
+	result = map_file(argv[4], bar.num, TI81XX_EP_KERNEL_OFFSET,
 			TI81XX_EP_KERNEL_MAX_SIZE);
 	if (result) {
 		printf("Mapping of Kernel to BAR2 (DDR) failed\n");
@@ -314,7 +316,7 @@ int main(int argc, char *argv[])
 		return result;
 	}
 
-	if (argc > 4) {
+	if (argc > 5) {
 		bar.num = TI816X_EP_RAMDISK_BAR;
 		bar.addr = TI81XX_EP_RAMDISK_IB_OFFSET;
 		result = ioctl(dev_desc, TI81XX_PCI_SET_BAR_WINDOW, &bar);
@@ -324,8 +326,8 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 
-        printf("%s loaded at 0x%08x.\n", argv[4], bar.addr);
-		result = map_file(argv[4], bar.num, TI81XX_EP_RAMDISK_OFFSET,
+        printf("%s loaded at 0x%08x.\n", argv[5], bar.addr);
+		result = map_file(argv[5], bar.num, TI81XX_EP_RAMDISK_OFFSET,
 				TI816X_EP_RAMDISK_MAX_SIZE);
 		if (result) {
 			printf("Mapping of RAMDISK to BAR2 (DDR) failed\n");

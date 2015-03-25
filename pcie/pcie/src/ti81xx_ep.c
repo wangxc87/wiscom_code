@@ -134,9 +134,15 @@ static Int32 edma_deInit()
 static Int32 get_selfId(void)
 {
     Int32 ret = 0;
-
-    gSelf_id = EP_ID_O;
-    
+    char *env;
+    env=getenv("DEV_ID");
+    if(!env){
+        printf("%s failed.\n",__func__);
+        return -1;
+    }
+    debug_print("getenv is %s\n", env);
+    gSelf_id = atoi(env);
+    printf("get dev_id is %d.\n", gSelf_id);    
     return ret;
 }
 
@@ -195,20 +201,32 @@ Int32 pcie_slave_getInfo(void)
                                  (off_t) gPciedev_slave_rsv_mem.base);
 	if ((void *)-1 == (void *) mapped_resv_buffer) {
 		err_print("pcie slave mapping dedicated memory fail\n");
-		close(gPciedev_slave_fd);
+		/* close(gPciedev_slave_fd); */
 		return -1;
 	}
 
     memset(&gPciedev_slave_info, 0, sizeof(struct pciedev_info));
-    gPciedev_slave_info.id = gSelf_id;
+    gPciedev_slave_info.dev_id = gSelf_id;
     gPciedev_slave_info.mgmt_buf = mapped_resv_buffer;
 
-    UInt32 out_addrbase;
-    gPciedev_mgmt_infoPtr = (struct mgmt_info *)mapped_resv_buffer;
-    if((gPciedev_mgmt_infoPtr->ep_id == gSelf_id) || (gPciedev_mgmt_infoPtr->ep_id == EP_ID_ALL)){
-        out_addrbase = gPciedev_mgmt_infoPtr->ep_outbase;
-    }
-    debug_print("Recv ep_outbound addr is 0x%x.\n", out_addrbase);
+    UInt32 out_addrbase = 0;
+    UInt32 i = 0;
+    do {
+        //waiting rc info
+        gPciedev_mgmt_infoPtr = (struct mgmt_info *)mapped_resv_buffer;
+        if((gPciedev_mgmt_infoPtr->ep_id == gSelf_id) || (gPciedev_mgmt_infoPtr->ep_id == EP_ID_ALL)){
+            out_addrbase = gPciedev_mgmt_infoPtr->ep_outbase;
+        }
+        usleep(1000);//sleep 1ms
+        i ++;
+        if(i == 30000){
+            err_print("waiting RC info timeout-30s, exit.\n");
+            goto ERROR;
+        }
+
+    } while(out_addrbase == 0);
+
+    debug_print("Recv ep_outbound addr is 0x%x, times-%u.\n", out_addrbase, i);
 
 	Int32 ob_size = 0; /* by default assuming 1 MB outbound window */
 	ret = ioctl(gPciedev_slave_fd, TI81XX_SET_OUTBOUND_SIZE, &ob_size);
@@ -269,8 +287,10 @@ Int32 pcie_slave_getInfo(void)
     gPciedev_slave_info.data_buf = (char *)mapped_pci;
     gPciedev_mgmt_infoPtr->wr_index --;
     gPciedev_mgmt_infoPtr->rd_index ++;
+    gPciedev_mgmt_infoPtr->ep_id = gSelf_id;
     gPciedev_mgmt_infoPtr->ep_initted = TRUE;
-    
+    gPciedev_mgmt_infoPtr->ep_outbase = 0;
+
     gMgmt_map_buf = gPciedev_slave_info.mgmt_buf;  //ep DDR
     gData_map_buf = gPciedev_slave_info.data_buf;  //ep outbound
     //    gData_edma_recvBuf = gPciedev_slave_info.mgmt_buf + RSVMEM_EDMA_RECV_BUF_OFFSET;
@@ -382,9 +402,12 @@ Int32 pcie_slave_recvData(char *buf, UInt32 buf_size, UInt32 timeout)
 
     if(i == time_out){
         err_print("Pcie slave recieve data Error,Timeout.\n");
-        return -1;
+        return PCIEDEV_EBUSY;
     }
 
+    if(i > 0)
+        debug_print("[%u] Pcie slave waiting recieving-%u.\n",databuf_head.frame_id, i);
+    
 #ifdef EDMA_TRANSMISSION
     ret = edma_recvData(databuf_head.buf_size, sizeof(struct pciedev_databuf_head));
     if(ret < 0){
@@ -400,7 +423,9 @@ Int32 pcie_slave_recvData(char *buf, UInt32 buf_size, UInt32 timeout)
 
     gFrame_count_prev = databuf_head.frame_id;
     databuf_head.wr_index --;
-    memcpy_neon((char *)gDatabuf_headPtr, (char *)&databuf_head, sizeof(struct pciedev_databuf_head));
+    gDatabuf_headPtr->ep_rd_flag[devid_to_index(gSelf_id)] = TRUE;//read flag
+    debug_print("[pcie%d-%u] recieve data size %u.\n", gSelf_id, gFrame_count_prev, ret);
+    /* memcpy_neon((char *)gDatabuf_headPtr, (char *)&databuf_head, sizeof(struct pciedev_databuf_head)); */
     return ret;
 }
 

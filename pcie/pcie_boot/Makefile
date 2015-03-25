@@ -11,6 +11,7 @@ CFLAGS=-I $(KERNEL_DIR)/include -I $(KERNEL_DIR)/arch/arm/include -I $(KERNEL_DI
 
 default:
 	$(MAKE) saBootApp
+	$(MAKE) saBootApp_nums
 
 clean:
-	rm saBootApp
+	rm saBootApp  saBootApp_numszai

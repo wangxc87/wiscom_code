@@ -147,7 +147,7 @@ int main(int argc, char **argv)
     }
 
     BSP_PrintSetLevel(BSP_PRINT_LEVEL_COMMON);
-#define TEST_EEPROM
+/* #define TEST_EEPROM */
 #ifdef TEST_EEPROM
     char eeprom_char[32],temp[32];
     int ret,num_mac;

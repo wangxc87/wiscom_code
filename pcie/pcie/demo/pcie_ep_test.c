@@ -2,7 +2,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <errno.h>
-
+#include <getopt.h>
 #include "pcie_std.h"
 #include "ti81xx_ep.h"
 #include "pcie_common.h"
@@ -34,12 +34,50 @@ void *waitCmd_thread(void *arg)
     }
     return 0;
 }
-
-Int32 main(Int32 argc,char *argv)
+int usage(char *string)
+{
+    printf("%s usage:\n", string);
+    printf("\t %s <-c>\n", string);
+    printf("\t -c: enable compare ,[default disable]\n");
+    printf("\t -h: help info \n");
+    return 0;
+}
+Int32 main(Int32 argc,char *argv[])
 {
     Int32 ret;
     char *data_buf;
     char *local_data_buf;
+    unsigned long long total_data_size = 0;
+    
+    char *optstring = "fch";
+    int opt;
+    int test_forever, test_compare;
+    char exe_name[64];
+
+    test_forever = 0;
+    test_compare = 0;
+    strcpy(exe_name, argv[0]);
+    
+    while(1){
+        opt = getopt(argc,argv,optstring);
+        if(opt < 0)
+            break;
+        switch(opt){
+        case 'f':
+            test_forever = 1;
+            break;
+        case 'c':
+            test_compare = 1;
+            break;
+        case 'h':
+            usage(exe_name);
+            return -1;
+        default:
+            usage(exe_name);
+            return -1;
+        }
+    }
+    
     printf("Version: %s %s\n",__TIME__,__DATE__);
 
     local_data_buf = malloc(PCIE_DATA_BUF_SIZE);
@@ -87,6 +125,7 @@ Int32 main(Int32 argc,char *argv)
 #endif
     
     while(1){
+     
         ret = pcie_slave_getCurTime(&prev_time);
         if(ret < 0){
             printf("get Cur time Error, exit.\n");
@@ -95,10 +134,12 @@ Int32 main(Int32 argc,char *argv)
             
         ret = pcie_slave_recvData(data_buf, PCIE_DATA_BUF_SIZE, 0);
         if(ret < 0){
-            printf("pcie slave receive data Error.\n");
+            if(ret != PCIEDEV_EBUSY)
+                printf("pcie slave receive data Error.\n");
             break;
         }
         recv_size = ret;
+        total_data_size += recv_size;
 
 #ifndef THPT_TEST
         if(i%128 == 0)
@@ -118,29 +159,30 @@ Int32 main(Int32 argc,char *argv)
             goto err_exit;
         }
         total_time +=cur_time - prev_time;
-#if 0
-        for(j = 0; j < recv_size/4; j++){
-            if(*tmp_ptr != 0x61616161 ){
-                printf("Pcie slave Check Recieved data Error ,%u-%u-0x%x.\n", i, j, *tmp_ptr);
-                goto err_exit;      
-            }else{
-                *tmp_ptr = 0;
-                tmp_ptr ++;
+        if(test_compare){
+            for(j = 0; j < recv_size/4; j++){
+                if(*tmp_ptr != j ){
+                    printf("Pcie slave Check Recieved data Error ,%u-%u-0x%x.\n", i, j, *tmp_ptr);
+                    goto err_exit;      
+                }else{
+                    *tmp_ptr = 0;
+                    tmp_ptr ++;
+                }
             }
         }
-#endif
         i ++;
-        //        usleep(5000);
+        usleep(10000); //waiting rc send data
     }
 
-    unsigned long long total_data_size;
-    total_data_size = i*recv_size;
     
 #define HZ 100
-    printf("receive data loop %u,total size %lluMBit in %u jiffies.\n",
-           i, total_data_size >> 20,total_time);
+        unsigned int data_size_tmp;
+
+        data_size_tmp =(UInt32)( total_data_size /(1<<20));
+    printf("receive data loop %u,total size %u MBit in %u jiffies.\n",
+           i,data_size_tmp ,total_time);
     printf("THPT calculated in RX is: %f MBPS\n ",
-           (float)((((UInt32)total_data_size >> 20) * HZ)/total_time));
+           (float)((((UInt32)data_size_tmp) * HZ)/total_time));
 
  err_exit:
     free(local_data_buf);
