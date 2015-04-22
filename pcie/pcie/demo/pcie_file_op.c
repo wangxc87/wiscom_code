@@ -27,10 +27,10 @@ int usage(char *string)
 {
     printf("%s usage: \n", string);
     printf("Ver: %s %s \n", __TIME__,__DATE__);
-    printf("   %s <op> <-m init_mode>  <-f file> \n", string);
-    printf("\t op: -s send to eps(0/1/2,or 3:all)\n");
-    printf("\t -m: rc init mode, 0:wait all, 1: wait some,default:0\n");
+    printf("   %s <op>  <-f file> \n", string);
+    printf("\t op: -s send to eps(1/2/3, or 0:all [default:0])\n");
     printf("\t     -r recieve \n");
+    printf("\t   -m: rc init mode, 0:wait all, 1: wait some,default:0\n");
     printf("\t -f: send or save filename\n");
     /* printf("\t -d: enable/disalbe debug mode [default disalbe] \n"); */
     printf("example: %s -s  -f ./test.bin\n", string);
@@ -153,6 +153,7 @@ int recv_file(char *file_name)
  exit0:
     pcie_slave_deInit();
     fclose(filep);
+    system("sync");
     return ret;
 }
 
@@ -195,16 +196,20 @@ int main(int argc,char *argv[])
             operation = OPER_SEND;
             switch (atoi(optarg)){
             case 0:
-                to_id = EP_ID_O;
+                rc_init_mode = INIT_ALL_EPS;
+                to_id = EP_ID_ALL;
                 break;
             case 1:
-                to_id = EP_ID_1;
+                rc_init_mode = INIT_SOME_EPS;
+                to_id = EP_ID_0;
                 break;
             case 2:
-                to_id = EP_ID_2;
+                rc_init_mode = INIT_SOME_EPS;
+                to_id = EP_ID_1;
                 break;
             case 3:
-                to_id = EP_ID_ALL;
+                rc_init_mode = INIT_SOME_EPS;
+                to_id = EP_ID_2;
                 break;
             default:
                 printf("Invalid Arg.\n");

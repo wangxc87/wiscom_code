@@ -11,6 +11,7 @@
 #define TEST_DATA_SIZE (1<<20)
 #define TEST_TOTAL_DATA (500llu*(1<<20))
 
+#ifdef TEST_PCIE_MSI
 void *sendCmd_thread(void *arg)
 {
     int ret;
@@ -33,6 +34,7 @@ void *waitCmd_thread(void *arg)
     }
     return 0;
 }
+#endif
 
 int usage(char *string)
 {
@@ -65,6 +67,7 @@ Int32 main(Int32 argc,char *argv[])
     strcpy(exe_name, argv[0]);
 
     total_data = TEST_TOTAL_DATA;
+    printf("Version: %s %s\n",__TIME__,__DATE__);
     
     while(1){
         opt = getopt(argc,argv,optstring);
@@ -100,7 +103,6 @@ Int32 main(Int32 argc,char *argv[])
         }
     }
     
-    printf("Version: %s %s\n",__TIME__,__DATE__);
     
     ret = pcieRc_init(mode);
     if(ret < 0){
@@ -137,12 +139,9 @@ Int32 main(Int32 argc,char *argv[])
     pthread_join(pcie_waitCmd_thread, 0);
 #endif
     
-    //    while(1){
-    
     do{
         
         for(i = 0; i < loop_count; i++){
-            //        memset(data_bufPtr, 97, TEST_DATA_SIZE);
             /* printf("Pcie send data %llu.\n", i); */
             if(test_compare){
                 u32Ptr = (unsigned int *)send_data;
@@ -161,10 +160,19 @@ Int32 main(Int32 argc,char *argv[])
             if(i%128 == 0)
                 printf("master has send data %llu-%u.\n", i,ret);
 #endif
+            /* OSA_pcieSendCmd(NULL); */
         }
         printf("[%u]:Total send data loop %llu, size is %llu MBit.\n",
                loop++, i, (i*TEST_DATA_SIZE)>>20);
     }while(test_forever);
+
+    //send 0 data to stop transfer
+    ret = OSA_pcieSendData(send_data, 0, EP_ID_ALL,0);
+    if(ret < 0){
+        printf("Pcie send data %llu Error.\n", i);
+        goto err_exit;
+    }
+
  err_exit:
     pcieRc_deInit();    
     printf("Pcie master Test exit.\n");

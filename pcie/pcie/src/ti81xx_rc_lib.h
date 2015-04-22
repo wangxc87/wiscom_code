@@ -15,6 +15,6 @@ Int32 pcieRc_deInit(void);
 
 Int32 OSA_pcieWaitCmd(void *arg);
 
-Int32 OSA_pcieSendCmd(void *arg);
+Int32 OSA_pcieSendCmd(Int32 ep_id, UInt32 cmd);
 
 #endif

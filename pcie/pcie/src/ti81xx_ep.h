@@ -15,7 +15,7 @@ Int32 pcie_slave_getCurTime(UInt32 *cur_jiffies);
 
 Int32 pcie_slave_deInit(void);
 
-Int32 pcie_slave_sendCmd(void *arg);
+Int32 pcie_slave_sendCmd(UInt32 cmd);
 
 Int32 pcie_slave_waitCmd(void *arg);
 

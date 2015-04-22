@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <errno.h>
 #include <getopt.h>
+#include <signal.h>
 #include "pcie_std.h"
 #include "ti81xx_ep.h"
 #include "pcie_common.h"
@@ -15,10 +16,11 @@ static UInt32 cur_time,prev_time,total_time;
 void *sendCmd_thread(void *arg)
 {
     int ret;
+    static int counter = 0;
     printf("%s create OK.\n", __func__);
     while(1){
-        pcie_slave_sendCmd(NULL);
-        usleep(50*1000);
+        pcie_slave_sendCmd(counter++);
+        usleep(gSelf_id*1000*1000);
     }
     return 0;
 }
@@ -27,7 +29,7 @@ void *waitCmd_thread(void *arg)
 {
     int ret;
     printf("%s create Ok.\n", __func__);
-    sleep(5);
+    /* sleep(5); */
     while(1){
         pcie_slave_waitCmd(NULL);
         usleep(50*1000);
@@ -39,8 +41,15 @@ int usage(char *string)
     printf("%s usage:\n", string);
     printf("\t %s <-c>\n", string);
     printf("\t -c: enable compare ,[default disable]\n");
+    printf("\t -p: test speed [default disable]\n");
     printf("\t -h: help info \n");
     return 0;
+}
+static int gTest_exit = 0;
+void signal_fxn(int signo)
+{
+    if(signo == SIGQUIT)
+        gTest_exit = 1;
 }
 Int32 main(Int32 argc,char *argv[])
 {
@@ -49,15 +58,17 @@ Int32 main(Int32 argc,char *argv[])
     char *local_data_buf;
     unsigned long long total_data_size = 0;
     
-    char *optstring = "fch";
+    char *optstring = "fcph";
     int opt;
-    int test_forever, test_compare;
+    int test_forever, test_compare,test_speed;
     char exe_name[64];
 
     test_forever = 0;
     test_compare = 0;
+    test_speed = 0;
     strcpy(exe_name, argv[0]);
-    
+    printf("Version: %s %s\n",__TIME__,__DATE__);
+    signal(SIGQUIT, signal_fxn);
     while(1){
         opt = getopt(argc,argv,optstring);
         if(opt < 0)
@@ -69,6 +80,9 @@ Int32 main(Int32 argc,char *argv[])
         case 'c':
             test_compare = 1;
             break;
+        case 'p':
+            test_speed = 1;
+            break;
         case 'h':
             usage(exe_name);
             return -1;
@@ -78,7 +92,6 @@ Int32 main(Int32 argc,char *argv[])
         }
     }
     
-    printf("Version: %s %s\n",__TIME__,__DATE__);
 
     local_data_buf = malloc(PCIE_DATA_BUF_SIZE);
     if(local_data_buf == NULL){
@@ -106,43 +119,43 @@ Int32 main(Int32 argc,char *argv[])
     total_time = 0;
     prev_time = 0;
 
-#ifdef TEST_PCIE_MSI
-    pthread_t pcie_sendCmd_thread;
-    pthread_t pcie_waitCmd_thread;
-    printf("***Test pcie msi*****\n");
-    ret = pthread_create(&pcie_sendCmd_thread, 0, (void *)sendCmd_thread,0);
-    if(ret < 0){
-        printf("sendCmd thread Create Error %s\n", strerror(errno));
-        return -1;
-    }
-    ret = pthread_create(&pcie_waitCmd_thread, 0, (void *)waitCmd_thread,0);
-    if(ret < 0){
-        printf("waitCmd thread Create Error %s\n", strerror(errno));
-        return -1;
-    }
-    pthread_join(pcie_sendCmd_thread, 0);
-    pthread_join(pcie_waitCmd_thread, 0);
-#endif
+/* #ifdef TEST_PCIE_MSI */
+    /* pthread_t pcie_sendCmd_thread; */
+    /* pthread_t pcie_waitCmd_thread; */
+    /* printf("***Test pcie msi*****\n"); */
+    /* ret = pthread_create(&pcie_sendCmd_thread, 0, (void *)sendCmd_thread,0); */
+    /* if(ret < 0){ */
+    /*     printf("sendCmd thread Create Error %s\n", strerror(errno)); */
+    /*     return -1; */
+    /* } */
+    /* ret = pthread_create(&pcie_waitCmd_thread, 0, (void *)waitCmd_thread,0); */
+    /* if(ret < 0){ */
+    /*     printf("waitCmd thread Create Error %s\n", strerror(errno)); */
+    /*     return -1; */
+    /* } */
+/*     pthread_join(pcie_sendCmd_thread, 0); */
+/*     pthread_join(pcie_waitCmd_thread, 0); */
+/* #endif */
     
-    while(1){
-     
+    while(!gTest_exit){
         ret = pcie_slave_getCurTime(&prev_time);
         if(ret < 0){
             printf("get Cur time Error, exit.\n");
             goto err_exit;
         } 
-            
         ret = pcie_slave_recvData(data_buf, PCIE_DATA_BUF_SIZE, 0);
         if(ret < 0){
             if(ret != PCIEDEV_EBUSY)
                 printf("pcie slave receive data Error.\n");
             break;
         }
+        if(ret == 0)
+            break;  //EOF flag
         recv_size = ret;
         total_data_size += recv_size;
 
 #ifndef THPT_TEST
-        if(i%128 == 0)
+        if(i%150 == 0)
             printf("Pcie slave has recieved Data %u-%d.\n", i, recv_size);
 #endif
 
@@ -152,7 +165,6 @@ Int32 main(Int32 argc,char *argv[])
         memcpy(local_data_buf,data_buf, PCIE_DATA_BUF_SIZE);
         tmp_ptr = (Int32 *)local_data_buf;
 #endif
-
         ret = pcie_slave_getCurTime(&cur_time);
         if(ret < 0){
             printf("get Cur time Error, exit.\n");
@@ -171,18 +183,20 @@ Int32 main(Int32 argc,char *argv[])
             }
         }
         i ++;
-        usleep(10000); //waiting rc send data
-    }
+        if(test_speed)
+            usleep(10000); //waiting rc send data
+    }//end of while(1)
 
     
 #define HZ 100
         unsigned int data_size_tmp;
-
         data_size_tmp =(UInt32)( total_data_size /(1<<20));
-    printf("receive data loop %u,total size %u MBit in %u jiffies.\n",
-           i,data_size_tmp ,total_time);
-    printf("THPT calculated in RX is: %f MBPS\n ",
-           (float)((((UInt32)data_size_tmp) * HZ)/total_time));
+        if(!test_speed)
+            printf("THTP TEST:\n");
+        printf("receive data loop %u,total size %u MBit in %u jiffies.\n",
+               i,data_size_tmp ,total_time);
+        printf("THPT calculated in RX is: %f MBPS\n ",
+               (float)((((UInt32)data_size_tmp) * HZ)/total_time));
 
  err_exit:
     free(local_data_buf);

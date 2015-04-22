@@ -200,9 +200,9 @@ int ti81xx_clear_outbound_mapping(struct ti81xx_outb_region *ob, int fd)
 int ti81xx_send_msi(void *arg, int fd)
 {
     int ret = 0;
-    struct ti81xx_msi_info msi;
+    struct ti81xx_msi_info *msi= (struct ti81xx_msi_info *)arg ;
 
-    ret = ioctl(fd, TI81XX_SEND_MSI, 0);
+    ret = ioctl(fd, TI81XX_SEND_MSI, (unsigned long)msi);
     if( ret < 0){
         //        err_print("Send msi Error.\n");
         return -1;

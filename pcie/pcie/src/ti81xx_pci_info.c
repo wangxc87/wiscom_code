@@ -173,7 +173,7 @@ int get_devices(struct pci_sys_info **start)
 	unsigned short device;
 	FILE *fp, *fv, *fd, *fr, *fc;
 
-	random = rand();
+	random = 1234;//rand();
 	sprintf(list_devices, "%x%c%c%s", random, '0', 'X', ".pcidevlist");
 	strcat(cmd, list_devices);
 	system(cmd);

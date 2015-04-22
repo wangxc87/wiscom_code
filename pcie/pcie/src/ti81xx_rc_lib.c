@@ -14,6 +14,7 @@
 #include <poll.h>
 #include <string.h>
 #include <drivers/char/ti81xx_pcie_rcdrv.h>
+#include <signal.h>
 
 #include "pcie_std.h"
 #include "ti81xx_pci_info.h"
@@ -46,16 +47,22 @@ Int32 get_pcie_subsys_info(void)
 		err_print("fetching pci sub system info on rc fails\n");
         return -1;
 	}
-    debug_print("no of Eps in system is %d.\n", gEp_nums);
-    
+    debug_print("Nums of Eps in system is %d.\n", gEp_nums);
+
+    memset(gPciedev_info, 0, PCIE_EP_MAX_NUMBER *sizeof(struct pciedev_info));
+
     i = 0;
-	for (temp = start; temp != NULL; temp = temp->next) {
+    printf("PCIe resouce Info: \n");
+    printf("Index\tBar\t  Start\t\t  Length\n");
+    for (temp = start; temp != NULL; temp = temp->next) {
         for(j = 0; j < 6; j ++){
             if((temp->res_value[j + 1][0] != 0) && (temp->res_value[j + 1][1] != 0)){
                 gPciedev_info[i].res_value[j][0] = temp->res_value[j + 1][0];
                 gPciedev_info[i].res_value[j][1] = temp->res_value[j + 1][1];          
-                debug_print("Res address of EP-%d is 0x%x size is 0x%x\n",
-                            i,temp->res_value[j][0],temp->res_value[j][1]);
+                printf(" %d \t %d \t0x%08x\t0x%08x\n",
+                       i,j+1,temp->res_value[j + 1][0],temp->res_value[j+1][1]);
+                /* debug_print("Res address of EP-%d is 0x%x size is 0x%x\n", */
+                /*             i,temp->res_value[j][0],temp->res_value[j][1]); */
             }
         }
         i ++;
@@ -83,6 +90,38 @@ Int32 get_pcie_subsys_info(void)
     return -1;
 }
 
+static void pcieRc_signal_handler(int signo)
+{
+    static UInt32 int_count = 0;
+
+    if(int_count%50 == 0)
+        printf("%s: [%u] receive int**.\n", __func__, int_count);
+    int i = 0,dev_id;
+    for(i = 0; i < gEp_nums; i++){
+        dev_id = gPciedev_info[i].dev_id;
+        if(!dev_id)
+            continue;
+        if(int_count%50 == 0)
+            printf("\t info_index:dev_id:rd_flag - %d:%u:%u\n",
+                   i, dev_id, gDatabuf_headPtr->ep_rd_flag[devid_to_index(dev_id)]);
+    }
+    int_count ++;
+}
+
+static int register_signal_handler(void)
+{
+    int ret = 0;
+    int oflags;
+    signal(SIGIO, pcieRc_signal_handler);
+    ret = fcntl(gPciedev_master_fd, F_SETOWN, getpid());
+    if(ret < 0){
+        err_print("F_SETOWN Error.\n");
+        return -1;
+    }
+    oflags = fcntl(gPciedev_master_fd, F_GETFL);
+    return fcntl(gPciedev_master_fd, F_SETFL, oflags|FASYNC);
+}
+
 //mode: RC init mode, mode :INIT_ALL_EPS, INIT_SOME_EPS
 Int32 pcieRc_init(int mode)
 {
@@ -95,13 +134,14 @@ Int32 pcieRc_init(int mode)
         err_print("Open device %s Error.\n", PCIE_RC_DEVICE);
         return -1;
     }
-    
+
+
     s32Ret = ioctl(gPciedev_master_fd, TI81XX_RC_START_ADDR_AREA, &start_addr); 
 	if (s32Ret < 0) {
 		err_print("ioctl START_ADDR failed\n");
 		goto ERROR;
 	}
-    debug_print("RC address of reserve mem is virt--0x%x phy--0x%x.\n",
+    printf("RC address of reserve mem is virt--0x%x phy--0x%x.\n",
                 start_addr.start_addr_virt,start_addr.start_addr_phy);
 
     
@@ -123,10 +163,12 @@ Int32 pcieRc_init(int mode)
         goto ERROR;
     }
     printf("Pcie get %d EPs subsys info successfully.\n", gEp_nums);  
+
     printf("Wait slave respond.\n");
     int init_retry = 0;
     int inited_eps = 0;
 retry_broadcast:   
+    printf("Wait slave respond, retrys-%d.\n", init_retry);
     for(i = 0; i < gEp_nums; i ++){
         if(!  gPciedev_info[i].dev_id){ //avoid init inited_ep agian
             gMgmt_infoPtr[i]->ep_id = EP_ID_ALL;
@@ -142,7 +184,9 @@ retry_broadcast:
     while(j < INIT_TIMEOUT/10){ //wait 1s
         usleep(100);
         for(i = 0; i < gEp_nums; i ++){
+
             memcpy_neon(&tmp_info, gMgmt_infoPtr[i], sizeof(struct mgmt_info));
+
             if(tmp_info.ep_initted != TRUE) {
                 continue;
             }
@@ -151,21 +195,35 @@ retry_broadcast:
                 gPciedev_info[i].dev_id = tmp_info.ep_id; //record ep hw_id
                 inited_eps ++;
                 printf("store pciedev_inf[%d] dev_id is %d.\n", i, tmp_info.ep_id);
+                memset(gMgmt_infoPtr[i], 0, sizeof(struct mgmt_info));
             }
         }
 
-        if(inited_eps == gEp_nums) //when all eps inited 
+        //when all eps inited 
+        if(inited_eps == gEp_nums){
+            /* printf("ALL_eps mode: inited_eps %d.\n", inited_eps); */
             break;
-        if((mode != INIT_ALL_EPS)&&inited_eps) //when some eps inited 
+        }
+
+        //when some eps inited 
+        if((mode != INIT_ALL_EPS)&&inited_eps){
+            /* printf("Some_eps mode: inited_eps %d.\n", inited_eps); */
             break;
+        }
         j++;
     }
     
     if(INIT_TIMEOUT == j*10){
-        if(init_retry++ < 10)
+        if(init_retry++ < 1000)
             goto retry_broadcast;
         err_print("Wait PCIe subsys init timeout.\n");
         return -1;
+    }
+
+    s32Ret = register_signal_handler();
+    if(s32Ret <0){
+        err_print("register signal handler Error.\n");
+        goto ERROR;
     }
     
     debug_print("rc init success\n");
@@ -176,6 +234,29 @@ retry_broadcast:
     close(gPciedev_master_fd);
     gPciedev_master_fd = -1;
     return s32Ret;
+}
+Int32 OSA_pcieSendCmd(Int32 ep_id, UInt32 cmd)
+{
+    int ret;
+    int msi_addr,i=0;
+    while(i < PCIE_EP_MAX_NUMBER){
+        if(gPciedev_info[i].dev_id == ep_id)
+            break;
+        i ++;
+        if(i == PCIE_EP_MAX_NUMBER){
+            err_print("Invalid Ep id.\n");
+            return -1;
+        }
+    }
+
+    gMgmt_infoPtr[i]->cmd = cmd;
+    msi_addr = gPciedev_info[i].res_value[0][0];
+    ret = ioctl(gPciedev_master_fd, TI81XX_RC_SEND_MSI, msi_addr);
+    if(ret < 0){
+        debug_print("RC send msi Error, addr-0x%x", msi_addr);
+        return -1;
+    }
+    return 0;
 }
 
 //get data buf Ptr
@@ -261,30 +342,34 @@ Int32 OSA_pcieSendData(char *data_ptr, UInt32 buf_size,UInt32 pciedev_id, UInt32
     if(pciedev_id == EP_ID_ALL){
         gDatabuf_headPtr->data_to_id = EP_ID_ALL;
         gDatabuf_headPtr->wr_index = gEp_nums ;
+        for(i = 0; i < gEp_nums; i ++){
+            if(!gPciedev_info[i].dev_id)
+                continue;
+            ret = OSA_pcieSendCmd(gPciedev_info[i].dev_id, gPciedev_info[i].dev_id);
+            if(ret < 0){
+                err_print("send EP-%d cmd 0x%x failed.\n", i, i);
+                gDatabuf_headPtr->data_to_id = 0;
+                return -1;
+            }
+        }
     }else{
         gDatabuf_headPtr->data_to_id = pciedev_id;
         gDatabuf_headPtr->wr_index = 1;
+        ret = OSA_pcieSendCmd(pciedev_id, pciedev_id);
+        if(ret < 0){
+            gDatabuf_headPtr->data_to_id = 0;
+            return -1;
+        }
     }
 
     if(frame_count != 0xfffffff0)
         frame_count ++;
     else
         frame_count = 0;
+
     debug_print("[%u] send data size %u.\n", frame_count, buf_size);
 
     return buf_size;
-}
-Int32 OSA_pcieSendCmd(void *arg)
-{
-    int ret;
-    int msi_addr;
-    msi_addr = 0x21800000;
-    ret = ioctl(gPciedev_master_fd, TI81XX_RC_SEND_MSI, msi_addr);
-    if(ret < 0){
-        debug_print("RC send msi Error, addr-0x%x", msi_addr);
-        return -1;
-    }
-    return 0;
 }
 Int32 OSA_pcieWaitCmd(void *arg)
 {
@@ -345,8 +430,10 @@ Int32 pcieRc_deInit(void)
     if(gPciedev_master_fd < 0)
         return 0;
     for(i = 0; i < gEp_nums; i++){
+        memset(gMgmt_infoPtr[i], 0, sizeof(struct mgmt_info));
         munmap(gPciedev_info[i].mgmt_buf, gPciedev_info[i].res_value[2][1]);
     }
     munmap(gDataBuf_base, PCIE_RC_RESERVE_MEM_SIZE);
+    close(gPciedev_master_fd);
     return 0;
 }
