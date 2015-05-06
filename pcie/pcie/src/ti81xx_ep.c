@@ -12,550 +12,360 @@
 #include <sys/ioctl.h>
 #include <poll.h>
 #include <semaphore.h>
+#include <drivers/char/pcie_common.h>
+#include <drivers/char/ti81xx_pcie_epdrv.h>
 
 #include "pcie_std.h"
-#include "ti81xx_ep_lib.h"
+#include "ti81xx_ep.h"
 #include "debug_msg.h"
 #include "pcie_common.h"
-
-/* #include "../../pcie_drv/ti81xx_pcie_epdrv.h" */
-/* #include "../../pcie_drv/pcie_common.h" */
 
 #define PCIE_SLAVE_DEVICE "/dev/ti81xx_pcie_ep"
 #define TI81XX_EDMA_DEVICE "/dev/ti81xx_edma_ep"
 
 
 
- Int32 gSelf_id = PCIE_INVALID_ID;
+static Int32 gSelf_id = PCIE_INVALID_ID;
 static Int32 gPciedev_slave_fd = -1;
-static Int32 gPciedev_edma_fd = -1;
+
 
 static struct pciedev_info gPciedev_slave_info;
-static struct ti81xx_pcie_mem_info gPciedev_slave_rsv_mem;//start_addr;
+static struct ti81xx_pcie_mem_info gPciedev_slave_rsv_mem; //start_addr;
 
-static struct mgmt_info *gPciedev_mgmt_infoPtr;
-static char *gMgmt_map_buf = NULL;
-static char *gData_map_buf = NULL;
-static char *gData_buf = NULL;
-static char *gData_edma_recvBuf = NULL;
-static char *gData_edma_sendBuf = NULL;
+static volatile struct mgmt_info *gPciedev_mgmt_infoPtr;
+
+static volatile  struct pciedev_databuf_head *gDatabuf_headPtr = NULL;
 
 static sem_t gSem_data;
 
-static struct pciedev_databuf_head *gDatabuf_headPtr = NULL;
+static Int32 pcie_slave_sendAck(UInt32 cmd, Int32 en_int);
 
 
-static Int32 edma_init(void)
+Int32 pcie_slave_getInfo(UInt32 timeout)
 {
-    Int32 ret = 0;
-
-    gPciedev_edma_fd = open(TI81XX_EDMA_DEVICE, O_RDWR);
-    if(gPciedev_edma_fd < 0){
-        err_print("edma device %s open Error.\n", TI81XX_EDMA_DEVICE);
-        gPciedev_edma_fd = -1;
-        return -1;
-    }
-    return 0;
-}
-#define RSVMEM_MGMT_SIZE   (0x200000)
-#define RSVMEM_EDMA_RECV_BUF_SIZE (0x300000)
-#define RSVMEM_MGMT_OFFSET (0)
-#define RSVMEM_EDMA_RECV_BUF_OFFSET (RSVMEM_MGMT_OFFSET + RSVMEM_MGMT_SIZE)
-#define RSVMEM_EDMA_SEND_BUF_OFFSET (RSVMEM_EDMA_RECV_BUF_OFFSET + RSVMEM_EDMA_RECV_BUF_SIZE)
-
-static Int32 edma_config(struct ti81xx_pcie_mem_info *start_addr)
-{
-    Int32 ret = 0;
-    struct dma_cnt_conf dma_cnt;
-    struct dma_buf_info	dma_b;
-
-#if 1
-	dma_cnt.acnt = 128;//256;
-	dma_cnt.bcnt = 4096*2;
-	dma_cnt.ccnt = 1;
-	dma_cnt.mode = 1; //1: AB-mode
-#else
-	dma_cnt.acnt = 510;
-	dma_cnt.bcnt = 1;
-	dma_cnt.ccnt = 1 ;
-	dma_cnt.mode = 0;
-#endif
-    if(gPciedev_edma_fd < 0){
-        err_print("edma device not inited.\n");
-        return -1;
-    }
-    ret = ioctl(gPciedev_edma_fd, TI81XX_EDMA_SET_CNT, &dma_cnt);
-	if (ret < 0) {
-		err_print("dma count setting ioctl failed\n");
-        goto dma_err_exit;
-    }
-
-	dma_b.size = 0x100000;
-	dma_b.send_buf = (unsigned int)start_addr->base + RSVMEM_EDMA_SEND_BUF_OFFSET;
-	dma_b.recv_buf = (unsigned int)start_addr->base + RSVMEM_EDMA_RECV_BUF_OFFSET;
-
-    ret = ioctl(gPciedev_edma_fd, TI81XX_EDMA_SET_BUF_INFO, &dma_b);
-	if (ret < 0) {
-        err_print("dma buffer setting ioctl failed\n");
-        goto dma_err_exit;
-	}
-
-    return 0;
-
- dma_err_exit:
-    close(gPciedev_edma_fd);
-    gPciedev_edma_fd = -1;
-    return -1;
-    
-}
-
-//buf_size not used
-Int32 edma_recvData(UInt32 buf_size, UInt32 offset)
-{
-    struct dma_info info;
-    int ret;
-
-    info.size =buf_size;//1<<20;//3M
-    info.user_buf =gData_edma_recvBuf;//NULL;
-    info.dest = 0;
-    info.src = (unsigned int *)(0x20000000 + offset);
-
-    ret = ioctl(gPciedev_edma_fd, TI81XX_EDMA_READM, &info);
-    if (ret < 0) {
-        err_print("edma ioctl failed, error in dma data transfer\n");
-        return -1;
-    }
-
-    return ret;
-}
-static Int32 edma_deInit()
-{
-    Int32 ret;
-    if(gPciedev_edma_fd < 0)
-        return 0;
-    close(gPciedev_edma_fd);
-    return 0;
-}
-
-static Int32 get_selfId(void)
-{
-    Int32 ret = 0;
-    char *env;
-    env=getenv("DEV_ID");
-    if(!env){
-        printf("%s failed.\n",__func__);
-        return -1;
-    }
-    debug_print("getenv is %s\n", env);
-    gSelf_id = atoi(env);
-    printf("get dev_id is %d.\n", gSelf_id);    
-    return ret;
-}
-
-Int32 pcie_slave_getInfo(void)
-{
-    char *mapped_resv_buffer,*mapped_pci;
+    char *mapped_resv_buffer, *mapped_pci;
     Int32 ret;
     Int32 map_rsv_size ;
-	struct ti81xx_pciess_regs pcie_regs;
-    
+
     ret = ioctl(gPciedev_slave_fd, TI81XX_GET_PCIE_MEM_INFO, &gPciedev_slave_rsv_mem);
     if (ret < 0) {
-		err_print("START_MGMT_AREA ioctl failed\n");
-		return -1;
-	}
+        err_print("START_MGMT_AREA ioctl failed\n");
+        return -1;
+    }
 
     if (!gPciedev_slave_rsv_mem.size || (gPciedev_slave_rsv_mem.size < SIZE_AREA)) {
-		if (!gPciedev_slave_rsv_mem.size)
-			err_print("No reserved memory available for PCIe "
-                      "transfers, quitting...\n");
-		else
-			err_print("Minimum %#x bytes required as reserved "
-                      "memory, quitting...\n", SIZE_AREA);
-		return -1;
-	}
-	printf("INFO: Slave start address of reserv_area is phy--0x%x,size--0x%x\n",
-                gPciedev_slave_rsv_mem.base,gPciedev_slave_rsv_mem.size);
-
+        if (!gPciedev_slave_rsv_mem.size)
+            err_print("No reserved memory available for PCIe "
+                "transfers, quitting...\n");
+        else
+            err_print("Minimum %#x bytes required as reserved "
+                "memory, quitting...\n", SIZE_AREA);
+        return -1;
+    }
+    printf("INFO: Slave start address of reserv_area is phy--0x%x,size--0x%x\n",
+            gPciedev_slave_rsv_mem.base, gPciedev_slave_rsv_mem.size);
     map_rsv_size = gPciedev_slave_rsv_mem.size;
-    
-    /*inbound setup to be done for inbound to be enabled. by default BAR 2*/
 
-	pcie_regs.offset = LOCAL_CONFIG_OFFSET + BAR2;
-	pcie_regs.mode = GET_REGS;
-	if (ioctl(gPciedev_slave_fd, TI81XX_ACCESS_REGS, &pcie_regs) < 0) {
-		err_print("GET_REGS mode ioctl failed\n");
-        return -1;
-	}
-
-	struct ti81xx_inb_window in;
-	in.BAR_num = 2;
-	/*by default BAR2 will be used to get inbound access by RC. */
-	in.internal_addr = gPciedev_slave_rsv_mem.base;
-	in.ib_start_hi = 0;
-	in.ib_start_lo = pcie_regs.value;
-
-	if (ti81xx_set_inbound(&in, gPciedev_slave_fd) < 0) {
-		err_print("setting in bound config failed\n");
-        return -1;
-	}
-
-	if (ti81xx_enable_in_translation(gPciedev_slave_fd) < 0) {
-		err_print("enable in bound failed\n");
-        return -1;
-	}
-    mapped_resv_buffer = (char *)mmap(0, map_rsv_size, PROT_READ|PROT_WRITE,
-                                 MAP_SHARED, gPciedev_slave_fd ,
-                                 (off_t) gPciedev_slave_rsv_mem.base);
-	if ((void *)-1 == (void *) mapped_resv_buffer) {
-		err_print("pcie slave mapping dedicated memory fail\n");
+    mapped_resv_buffer = (char *) mmap(0, map_rsv_size, PROT_READ | PROT_WRITE,
+            MAP_SHARED, gPciedev_slave_fd,
+            (off_t) gPciedev_slave_rsv_mem.base);
+    if ((void *) - 1 == (void *) mapped_resv_buffer) {
+        err_print("pcie slave mapping dedicated memory fail\n");
 		/* close(gPciedev_slave_fd); */
-		return -1;
-	}
-
-    memset(&gPciedev_slave_info, 0, sizeof(struct pciedev_info));
+        return -1;
+    }
+    gPciedev_mgmt_infoPtr = (struct mgmt_info *) mapped_resv_buffer;
+    memset(&gPciedev_slave_info, 0, sizeof (struct pciedev_info));
     gPciedev_slave_info.dev_id = gSelf_id;
-    gPciedev_slave_info.mgmt_buf = mapped_resv_buffer;
-
-    UInt32 out_addrbase = 0;
-    UInt32 i = 0;
-    do {
-        //waiting rc info
-        gPciedev_mgmt_infoPtr = (struct mgmt_info *)mapped_resv_buffer;
-        if((gPciedev_mgmt_infoPtr->ep_id == gSelf_id) || (gPciedev_mgmt_infoPtr->ep_id == EP_ID_ALL)){
-            out_addrbase = gPciedev_mgmt_infoPtr->ep_outbase;
-        }
-        usleep(1000);//sleep 1ms
-        i ++;
-        if(i%1000 == 0){
-            printf("waiting RC info timeout-%u,unit[ms].\n", i);
-            /* goto ERROR; */
-        }
-
-    } while(out_addrbase == 0);
-
-    printf("Recv ep_outbound addr is 0x%x, times-%u.\n", out_addrbase, i);
-
-	Int32 ob_size = 0; /* by default assuming 1 MB outbound window */
-	ret = ioctl(gPciedev_slave_fd, TI81XX_SET_OUTBOUND_SIZE, &ob_size);
-    if(ret < 0){
-        err_print("Pcie slave ioctl set_outboud_size Error.\n");
-        goto ERROR;
-    }
-
-    struct ti81xx_outb_region ob;
-    ob.ob_offset_hi = 0;
-    ob.ob_offset_idx = out_addrbase;
-    ob.size = PCIE_RC_RESERVE_MEM_SIZE;
-    ret = ti81xx_set_outbound_region(&ob, gPciedev_slave_fd);
-    if(ret < 0){
-        err_print("Pcie slave set outboud Error.\n");
-        goto ERROR;
-    }
-   	if (ti81xx_enable_out_translation(gPciedev_slave_fd) < 0) {
-		err_print("Pcie slave enable outbound failed\n");
-		goto ERROR;
-    }
-
-    //使能EP读写请求的功能
-	if (ti81xx_enable_bus_master(gPciedev_slave_fd) < 0) {
-		err_print("Pcie slave enable bus master fail\n");
-		goto ERROR;
-	}
-    
+    gPciedev_slave_info.mgmt_buf_base = mapped_resv_buffer;
+     
     //设置outboud
-	mapped_pci = (char *)mmap(0, PCIE_NON_PREFETCH_SIZE,
-                              PROT_READ|PROT_WRITE, MAP_SHARED,
-                              gPciedev_slave_fd, 0x20000000);
-	if ((void *)-1 == (void *) mapped_pci) {
-		err_print("mapping PCIE_NON_PREFETCH memory fail\n");
-		goto ERROR;
-	}
-
-    gData_edma_recvBuf = (char *)mmap(0, RSVMEM_EDMA_RECV_BUF_SIZE,PROT_READ|PROT_WRITE,
-                                      MAP_SHARED, gPciedev_slave_fd,
-                                      (off_t)(gPciedev_slave_rsv_mem.base + RSVMEM_EDMA_RECV_BUF_OFFSET));
-    if(gData_edma_recvBuf == NULL){
-        err_print("dma_recvBuf mmap phyaddr 0x%x Error.\n", gPciedev_slave_rsv_mem.base + RSVMEM_EDMA_RECV_BUF_OFFSET);
-        munmap(mapped_pci, PCIE_NON_PREFETCH_SIZE);
+    mapped_pci = (char *) mmap(0, PCIE_NON_PREFETCH_SIZE,
+            PROT_READ | PROT_WRITE, MAP_SHARED,
+            gPciedev_slave_fd, 0x20000000);
+    if ((void *) - 1 == (void *) mapped_pci) {
+        err_print("mapping PCIE_NON_PREFETCH memory fail\n");
         goto ERROR;
     }
 
-    /*
-    gData_edma_sendBuf = (char *)mmap(0, dma_b.size, PROT_READ | PROT_WRITE,
-                                      MAP_SHARED, gPciedev_slave_fd, (off_t)dma_b.send_buf);
-    if(gData_edma_sendBuf == NULL){
-        err_print("dma_sendBuf mmap phyaddr 0x%x Error.\n",dma_b.send_buf);
-        munmap(gData_edma_recvBuf, dma_b.size);
-        goto dma_err_exit;
-    }
+    gPciedev_slave_info.data_buf_base = (char *) mapped_pci;
 
-    */
-
-    gPciedev_slave_info.data_buf = (char *)mapped_pci;
-    gPciedev_mgmt_infoPtr->wr_index --;
-    gPciedev_mgmt_infoPtr->rd_index ++;
-    gPciedev_mgmt_infoPtr->ep_id = gSelf_id;
-    gPciedev_mgmt_infoPtr->ep_initted = TRUE;
-    gPciedev_mgmt_infoPtr->ep_outbase = 0;
-
-    gMgmt_map_buf = gPciedev_slave_info.mgmt_buf;  //ep DDR
-    gData_map_buf = gPciedev_slave_info.data_buf;  //ep outbound
-    //    gData_edma_recvBuf = gPciedev_slave_info.mgmt_buf + RSVMEM_EDMA_RECV_BUF_OFFSET;
-    gData_edma_sendBuf = gPciedev_slave_info.mgmt_buf + RSVMEM_EDMA_SEND_BUF_OFFSET;
 
     return 0;
 
- ERROR:
+ERROR:
     munmap(mapped_resv_buffer, map_rsv_size);
     return -1;
 }
-
 static UInt32 int_count = 0;
 
-static void pcie_slave_signal_handler(int signo)
-{
-    if(int_count%50 == 0)
-        printf("%s: ***[%u] receive data-0x%x signo %d**.\n", 
-               __func__, int_count, gPciedev_mgmt_infoPtr->cmd,signo);
-    int_count ++;
-    sem_post(&gSem_data);
-}
 
-static int register_signal_handler(void)
+Int32 pcie_slave_init(struct pciedev_init_config *config)
 {
-    int ret = 0;
-    int oflags;
-    signal(SIGIO, pcie_slave_signal_handler);
-    ret = fcntl(gPciedev_slave_fd, F_SETOWN, getpid());
-    if(ret < 0){
-        err_print("F_SETOWN Error.\n");
-        return -1;
-    }
-    oflags = fcntl(gPciedev_slave_fd, F_GETFL);
-    return fcntl(gPciedev_slave_fd, F_SETFL, oflags|FASYNC);
-}
+    Int32 ret;
+    UInt32 timeout;
+    struct pciedev_buf_info buf_info;
+    struct timeval *tv = NULL;
+    Int32 en_clearBuf = TRUE;
+    
+    set_printLevel();
 
-Int32 pcie_slave_init(void)
-{
-    Int32 ret ;
-    ret = get_selfId();
-    if(ret < 0){
+    gSelf_id = get_selfId();
+    if (gSelf_id < 0) {
         err_print("Dev get selfid Error.\n");
         return -1;
     }
 
+    if(config){
+        tv = &config->tv;
+        en_clearBuf = config->en_clearBuf;
+    }
+    
+    if(!tv)
+        timeout = ~0;
+    else
+        timeout = tv->tv_sec * 1000 + tv->tv_usec/1000;
+    if(timeout == 0)
+        timeout = 1000* DEFAULT_INIT_TIMEOUT;
+    
     gPciedev_slave_fd = open(PCIE_SLAVE_DEVICE, O_RDWR);
-    if(gPciedev_slave_fd < 0){
-        err_print("Open Pciedev slave %s Error.\n",PCIE_SLAVE_DEVICE);
+    if (gPciedev_slave_fd < 0) {
+        err_print("Open Pciedev slave %s Error.\n", PCIE_SLAVE_DEVICE);
         return -1;
     }
+    sem_init(&gSem_data, 0, 0);   
 
-    sem_init(&gSem_data, 0, 0);
-
-    /* ret = register_signal_handler(); */
-    /* if(ret <0){ */
-    /*     err_print("register signal handler Error.\n"); */
-    /*     goto init_err_exit; */
-    /* } */
-
-    ret = pcie_slave_getInfo();
-    if(ret < 0){
+    if(en_clearBuf){
+        if(ioctl(gPciedev_slave_fd, TI81XX_RESET_DATAQUE, NULL) < 0)
+            err_print("Ioctl : RESET_DATAQUE error.\n");
+        if(ioctl(gPciedev_slave_fd, TI81XX_RESET_CMDQUE, NULL) < 0)
+            err_print("Ioctl : RESET_DATAQUE error.\n"); 
+    }
+    
+    ret = pcie_slave_getInfo(timeout);
+    if (ret < 0) {
         err_print("Pcie configure Error.\n");
         goto init_err_exit;
     }
     debug_print("pcie slave get info successfully.\n");
 
-    ret = edma_init();
-    if(ret < 0){
-        err_print("edma init Error.\n");
-        goto init_err_exit;
-    }
-    debug_print("edma init OK.\n");
+    if(ioctl(gPciedev_slave_fd, TI81XX_GET_SENDCMD_INFO, &buf_info) < 0){
+        err_print("Ioctl : GET_SENDCMD_INFO error.\n");
+        return -1;
+    }    
+    gPciedev_slave_info.send_cmd = gPciedev_slave_info.mgmt_buf_base + EP_SEND_CMD_OFFSET(buf_info.buf_size);
+    gPciedev_slave_info.cmd_buf_size_max = buf_info.buf_size;
+    
+    if(ioctl(gPciedev_slave_fd, TI81XX_GET_SENDDATA_INFO, &buf_info) < 0){
+        err_print("Ioctl : GET_SENDDATA_INFO error.\n");
+        return -1;
+    }    
+    gPciedev_slave_info.data_buf_size_max = buf_info.buf_size;
+    gDatabuf_headPtr = (struct pciedev_databuf_head *) gPciedev_slave_info.data_buf_base;
+ 
 
-    ret = edma_config(&gPciedev_slave_rsv_mem);
-    if(ret < 0){
-        err_print("edma config Error.\n");
-        edma_deInit();
-        goto init_err_exit;
-    }
+    pcieDev_lockInit(&gPciedev_slave_info);
+
     return 0;
 
- init_err_exit:
-        close(gPciedev_slave_fd);
-        return -1;
-    
+init_err_exit:
+    pcieDev_lockDeInit(&gPciedev_slave_info);
+
+    close(gPciedev_slave_fd);
+    return -1;
+
 }
 
-Int32 pcie_slave_sendCmd(UInt32 cmd)
+static Int32 pcie_slave_sendAck(UInt32 cmd, Int32 en_int)
 {
-    gDatabuf_headPtr->ep_rd_flag[devid_to_index(gSelf_id)] = cmd;
-    //发送中断通知
-    if( ti81xx_send_msi(NULL, gPciedev_slave_fd) < 0){
-        err_print("send msi Error.\n");
-        return -1;
+    int ret = 0;
+
+    /* struct ti81xx_ack_info ack_info; */
+    /* ack_info.cmd = cmd; */
+    /* ack_info.en_int = en_int; */
+    /* ret = ioctl(gPciedev_slave_fd, TI81XX_SEND_ACK, &ack_info); */
+    /* if( ret < 0){ */
+    /*     return -1; */
+    /* } */
+
+    /* gDatabuf_headPtr->ep_rd_flag[devid_to_index(gSelf_id)] |= cmd; */
+    gPciedev_mgmt_infoPtr->cmd |= cmd;
+    
+    if(en_int){
+        //发送中断通知
+        ret = ioctl(gPciedev_slave_fd, TI81XX_SEND_MSI, NULL);
+        if( ret < 0){
+            //        err_print("Send msi Error.\n");
+            return -1;
+        }
     }
     return 0;    
 }
 
-char  *pcie_slave_reqDatabuf(UInt32 buf_size)
+#define DATA_WAIT_TIMEOUT (30000)
+
+
+Int32 pcie_slave_recvData(char *buf, UInt32 buf_size, Int32 *buf_channel, struct timeval *tv)
 {
-    Int32 ret;
-    char *ptr_tmp;
 
-    if(buf_size >= PCIE_RC_RESERVE_MEM_SIZE){
-        err_print("PCI slave require size too large,Maxsize [0x%x]",PCIE_RC_RESERVE_MEM_SIZE);
-        return NULL;
-    }
-
-    gDatabuf_headPtr = (struct pciedev_databuf_head *)gData_map_buf;
-
-    gData_buf = (char *)(gData_map_buf + sizeof(struct pciedev_databuf_head ));
-
-#ifdef EDMA_TRANSMISSION
-    ptr_tmp = gData_edma_recvBuf;
-    debug_print("edma databuf pointer requred.\n");
-#else
-    ptr_tmp = gData_buf;
-#endif
-
-    return ptr_tmp;
-}
-
-#define DATA_WAIT_TIMEOUT (3000)
-
-static UInt32 gFrame_count_prev = 0xffffffff;
-
-//timeout:0 表示系统默认等待时间3s，单位ms
-//return: recieve size, -1:error
-struct pciedev_buf_info {
-    char *buf_kptr;
-    u32 buf_ptr_offset;
-    u32 buf_size;
-};
-#define TI81XX_DEQUE_DATA 0
-#define TI81XX_QUE_DATA   1
-
-Int32 pcie_slave_recvData(char *buf, UInt32 buf_size, UInt32 timeout)
-{
-#if 0
-    Int32 ret;
+    Int32 data_size = 0;
+    char *data_buf;
     struct pciedev_buf_info buf_info;
-    char *buf_ptr;
-    ret = ioctl(gPciedev_slave_fd, TI81XX_DEQUE_DATA, &buf_info);
-    if(ret <0){
-        printf("ioctl DEQUE_DATA error.\n");
-        return -1;
-    }
-
-    buf_ptr = gPciedev_slave_info.mgmt_buf + buf_info.buf_ptr_offset;
-    buf_size = buf_info.buf_size;
-
-    ret = ioctl(gPciedev_slave_fd, TI81XX_QUE_DATA, &buf_info);
-    if(ret <0){
-        printf("ioctl QUE_DATA error.\n");
-        return -1;
-    }
-    debug_print("%s: recv channel data  is %d, bufsize 0x%x.\n", __func__, *buf_ptr, buf_size);
-    return buf_size;        
-#else    
-    Int32 ret;
-    UInt32 i = 0,time_out; 
-    struct pciedev_databuf_head databuf_head;
-
-    if(timeout == 0)
-        time_out = DATA_WAIT_TIMEOUT*10;
-    else
-        time_out = time_out*10;
-
-    sem_wait(&gSem_data);
-    
-    while(1){
-
-        memcpy_neon((char *)&databuf_head, gDatabuf_headPtr, sizeof(struct pciedev_databuf_head));
-
-        if((databuf_head.data_to_id == gSelf_id) || (databuf_head.data_to_id == EP_ID_ALL)){
-            if((gFrame_count_prev != databuf_head.frame_id) && (databuf_head.wr_index > 0))//if has been recieved
-                break;
-        }
-        if(i != time_out)
-            i ++;
-        else
-            break;
-        usleep(100);
-    }
-
-    if(i == time_out){
-        err_print("Pcie slave recieve data Error,Timeout.\n");
-        return PCIEDEV_EBUSY;
-    }
  
-    if(i > 0)
-        debug_print("[%u] Pcie slave waiting recieving-%u.\n",databuf_head.frame_id, i);
+    memset((char *)&buf_info, 0, sizeof(struct pciedev_buf_info));
+
+    if(!tv){
+        buf_info.tv_sec = 0xffffff;
+    } else{
+        buf_info.tv_sec = tv->tv_sec;
+        buf_info.tv_usec = tv->tv_usec;
+    }
+      
+    if(!buf_info.tv_sec && !buf_info.tv_usec)//defualt waiting time
+        buf_info.tv_sec = DEFAULT_RECV_TIMEOUT;
+
     
-#ifdef EDMA_TRANSMISSION
-    ret = edma_recvData(databuf_head.buf_size, sizeof(struct pciedev_databuf_head));
-    if(ret < 0){
-        err_print("edma recv data Error.\n");
+    if(ioctl(gPciedev_slave_fd, TI81XX_DEQUE_DATA, &buf_info) < 0){
+        err_print("ioctl error.\n");
         return -1;
     }
-    buf = gData_edma_recvBuf;
-    ret = databuf_head.buf_size;
-#else
-    buf = gData_buf;
-    ret = databuf_head.buf_size;
-#endif
-
-    gFrame_count_prev = databuf_head.frame_id;
-    databuf_head.wr_index --;
-    /* gDatabuf_headPtr->ep_rd_flag[devid_to_index(gSelf_id)] = TRUE;//read flag */
-
-    if(pcie_slave_sendCmd(TRUE) < 0)
+    
+    data_buf = gPciedev_slave_info.mgmt_buf_base + buf_info.buf_ptr_offset;
+    data_size = buf_info.buf_size;
+    
+    data_size -= 4;
+    *buf_channel = *data_buf;
+    memcpy_neon(buf, data_buf + 4, data_size);
+    debug_print("get dataInfo: chnID-%d buf_size-%d buf_ptr_offset-0x%x.\n", 
+    *buf_channel, data_size, buf_info.buf_ptr_offset);
+    
+   if(ioctl(gPciedev_slave_fd, TI81XX_QUE_DATA, &buf_info) < 0){
+        err_print("ioctl error.\n");
         return -1;
+    }
+    return data_size;
 
-    /* debug_print("[pcie%d-%u] recieve data size %u.\n", gSelf_id, gFrame_count_prev, ret); */
-    /* memcpy_neon((char *)gDatabuf_headPtr, (char *)&databuf_head, sizeof(struct pciedev_databuf_head)); */
-    return ret;
-#endif
 }
 
 
-Int32 pcie_slave_waitCmd(void *arg)
+//return size of cmd or -1
+Int32 pcie_slave_recvCmd(char *buf, int *from_id, struct timeval *tv)
 {
-    int i = 0;
-    int ret;
-    struct pollfd poll_fd;
-    poll_fd.events == POLLIN;
-    poll_fd.fd = gPciedev_slave_fd;
-    
-    int intr_cntr;
 
-    //poll wait
-    printf("RC start recv msi.\n");
-    while(1){
-        ret = poll(&poll_fd, 1, 1000);//3 sec wait timeout
-        if(( ret == POLLIN) || (poll_fd.revents == POLLIN)){
-            debug_print("recv msi.\n");
-            printf("%s: recieved msi-%d.\n", __func__, i);
-            //            break;
-        }
-        ioctl(gPciedev_slave_fd, TI81XX_GET_INTR_CNTR, &intr_cntr);
-        printf("Pcie-%d: wait msi ret-0x%x, interrupt occur times-%d timeout-%d.\n", gSelf_id, ret, intr_cntr, i);
-        i ++;
-        //        usleep(10000);
+    Int32 buf_size = 0;  
+    char *cmd_buf = NULL;
+    struct pciedev_buf_info buf_info;
+    
+    if(gPciedev_slave_fd < 0)
+        return -1;
+
+    if(!buf){
+        err_print("Invalid input buf pointer.\n");
+        return -1;
     }
+
+    memset((char *)&buf_info, 0, sizeof(struct pciedev_buf_info));
+    
+   if(!tv){
+       buf_info.tv_sec = 0xffffff;
+   } else{
+       buf_info.tv_sec = tv->tv_sec;
+       buf_info.tv_usec = tv->tv_usec;
+    }
+      
+    if(!buf_info.tv_sec && !buf_info.tv_usec)//defualt waiting time
+        buf_info.tv_sec = DEFAULT_RECV_TIMEOUT;
+
+    if(ioctl(gPciedev_slave_fd, TI81XX_DEQUE_CMD, &buf_info) < 0){
+        err_print("ioctl error.\n");
+        return -1;
+    }
+       
+    cmd_buf = gPciedev_slave_info.mgmt_buf_base + buf_info.buf_ptr_offset;
+    
+    buf_size = buf_info.buf_size - 8;      
+    *from_id = *(int *)(cmd_buf + 4);
+    memcpy_neon(buf, cmd_buf + 8, buf_size );
+    
+    debug_print("get cmdInfo: buf_size-%d buf_ptr_offset-0x%x.\n", 
+    buf_size, buf_info.buf_ptr_offset);
+    
+   if(ioctl(gPciedev_slave_fd, TI81XX_QUE_CMD, &buf_info) < 0){
+        err_print("ioctl error.\n");
+        return -1;
+    }
+       
+    return buf_size;
+
+}
+
+//to_id: not used , only support rc
+Int32 pcie_slave_sendCmd(char *buf, Int32 to_id, UInt32 buf_size, struct timeval *tv)
+{
+    char *send_buf = NULL;
+    volatile int *cmd_ack = (volatile *)&gPciedev_mgmt_infoPtr->cmd;
+    UInt32 timeout;
+    Int32 *buf_sizep, *buf_idp;
+    
+    if(gPciedev_slave_fd < 0)
+        return -1;
+    
+    if(buf_size + 8 > gPciedev_slave_info.cmd_buf_size_max){
+        err_print("Send buf size too large.\n");
+        return -1;
+    }
+    
+    send_buf = gPciedev_slave_info.send_cmd;
+    buf_sizep = (int *)send_buf;
+    buf_idp = (int *)(send_buf + 4);
+    *buf_sizep = buf_size + 8;
+    *buf_idp = gSelf_id;
+
+    memcpy_neon(send_buf + 8, buf, buf_size);
+    
+    if(pcie_slave_sendAck(SEND_CMD, TRUE) < 0){
+        err_print("[pcie-%d] send ACK failed.\n", gSelf_id);
+        return -1;
+    }
+    
+    if(!tv)
+        timeout = ~0;
+    else
+        timeout = tv->tv_sec * 5000 + tv->tv_usec/200;
+    if(timeout == 0)
+        timeout = 5000*DEFAULT_SEND_TIMEOUT;    
+ 
+    while(timeout){
+        
+        if(*cmd_ack & CMD_ACK){
+            *cmd_ack &= ~CMD_ACK;
+            break;
+        }
+            
+        
+        usleep(200);
+        timeout --;
+        if(!timeout){
+            err_print("ep send cmd timeout, failed.\n");
+            return -1;
+        }
+
+        if((timeout % 50) == 0)
+            debug_print("waiting ack [%d]...\n", timeout);
+    }
+    
     return 0;
 }
 
 Int32 pcie_slave_getCurTime(UInt32 *cur_jiffies)
 {
     Int32 ret;
-    UInt32  cur_time;
-    if(gPciedev_slave_fd < 0)
+    UInt32 cur_time;
+    if (gPciedev_slave_fd < 0)
         return -1;
-    
+
     ret = ioctl(gPciedev_slave_fd, TI81XX_CUR_TIME, &cur_time);
-    if(ret < 0){
+    if (ret < 0) {
         err_print("Pcie slave ioctl TI81XX_CUR_TIME Error.\n");
         return -1;
     }
@@ -567,18 +377,27 @@ Int32 pcie_slave_getCurTime(UInt32 *cur_jiffies)
 
 Int32 pcie_slave_deInit(void)
 {
-    Int32 ret;
 
-    if(gPciedev_slave_fd < 0)
+    if (gPciedev_slave_fd < 0)
         return 0;
+ //   gSinal_handler_exit = 1;
 
-    munmap(gMgmt_map_buf, SIZE_AREA);
+    pcieDev_lock(&gPciedev_slave_info);
 
-    munmap(gData_map_buf, PCIE_NON_PREFETCH_SIZE);
-    
-    printf("%s: *** receive %u inters**.\n", __func__, int_count);
-    close(gPciedev_edma_fd);
     close(gPciedev_slave_fd);
+    gPciedev_slave_fd = -1;
+    
+    munmap(gPciedev_slave_info.mgmt_buf_base, SIZE_AREA);
 
+    munmap(gPciedev_slave_info.data_buf_base, PCIE_NON_PREFETCH_SIZE);
+    gPciedev_slave_info.mgmt_buf_base = NULL;
+    gPciedev_slave_info.data_buf_base= NULL;
+    gPciedev_mgmt_infoPtr = NULL;
+    pcieDev_unlock(&gPciedev_slave_info);
+    
+    pcieDev_lockDeInit(&gPciedev_slave_info);
+    
+    debug_print("%s: *** receive %u inters**.\n", __func__, int_count);
+    
     return 0;
 }

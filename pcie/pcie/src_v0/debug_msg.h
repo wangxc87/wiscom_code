@@ -49,12 +49,9 @@
 //校验数据
 #define CONFIG_WISCOM_COMPARE
 
-/* int gDebug_enable; */
-
-/*  set_printLevel(void); */
 
 #define debug_print(fmt, ...) \
-	do { if (DEBUG_TEST || gDebug_enable) fprintf(stdout, "%s:%d:%s(): " fmt, __FILE__, \
+	do { if (DEBUG_TEST) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
 				__LINE__, __func__, ##__VA_ARGS__); } while (0)
 
 /* in debug mode every thing will be printed

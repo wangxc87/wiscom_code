@@ -7,20 +7,26 @@
 #include "pcie_std.h"
 #include "ti81xx_ep.h"
 #include "pcie_common.h"
+#include "osa_pcie.h"
 
-#define PCIE_DATA_BUF_SIZE (3<<20)
+#define RECV_MAX_SIZE (3<<20)
 
 static UInt32 cur_time,prev_time,total_time;
-
+#define TEST_PCIE_MSI
 
 void *sendCmd_thread(void *arg)
 {
-    int ret;
-    static int counter = 0;
+    int ret, i = 0;
+    char cmd_buf[2*1024];
     printf("%s create OK.\n", __func__);
     while(1){
-        pcie_slave_sendCmd(counter++);
-        usleep(gSelf_id*1000*1000);
+        sprintf(cmd_buf,"This Cmd-%d from pcie-%d.", i, gLocal_id);
+        ret = OSA_pcieSendCmd(RC_ID, cmd_buf, 128, NULL);
+        if(ret < 0){
+            printf("%s: send cmd to pcie-%d failed.\n", __func__, i);
+        }
+        i ++;
+        sleep(1);
     }
     return 0;
 }
@@ -28,20 +34,27 @@ void *sendCmd_thread(void *arg)
 void *waitCmd_thread(void *arg)
 {
     int ret;
+    int recv_size, from_id;
+    char recv_cmd[2*1024];
     printf("%s create Ok.\n", __func__);
-    /* sleep(5); */
     while(1){
-        pcie_slave_waitCmd(NULL);
-        usleep(50*1000);
+        recv_size = OSA_pcieRecvCmd(recv_cmd, &from_id, NULL);
+        if(recv_size > 0){
+            printf("%s: From pcie-%d info [size: %d] : %s.\n", __func__, from_id, recv_size, recv_cmd);
+        }else
+            printf("%s: recvCmd failed.\n", __func__);
+
     }
     return 0;
 }
+
 int usage(char *string)
 {
     printf("%s usage:\n", string);
     printf("\t %s <-c>\n", string);
     printf("\t -c: enable compare ,[default disable]\n");
     printf("\t -p: test speed [default disable]\n");
+    printf("\t -C: enable/disable send cmd, default enable\n");
     printf("\t -h: help info \n");
     return 0;
 }
@@ -58,14 +71,15 @@ Int32 main(Int32 argc,char *argv[])
     char *local_data_buf;
     unsigned long long total_data_size = 0;
     
-    char *optstring = "fcph";
+    char *optstring = "fcphC:";
     int opt;
-    int test_forever, test_compare,test_speed;
+    int test_forever, test_compare,test_speed, test_cmd;
     char exe_name[64];
 
     test_forever = 0;
     test_compare = 0;
     test_speed = 0;
+    test_cmd = 1;
     strcpy(exe_name, argv[0]);
     printf("Version: %s %s\n",__TIME__,__DATE__);
     signal(SIGQUIT, signal_fxn);
@@ -83,6 +97,9 @@ Int32 main(Int32 argc,char *argv[])
         case 'p':
             test_speed = 1;
             break;
+        case 'C':
+            test_cmd = atoi(optarg);
+            break;
         case 'h':
             usage(exe_name);
             return -1;
@@ -93,24 +110,18 @@ Int32 main(Int32 argc,char *argv[])
     }
     
 
-    local_data_buf = malloc(PCIE_DATA_BUF_SIZE);
+    local_data_buf = malloc(RECV_MAX_SIZE);
     if(local_data_buf == NULL){
         printf("local_databuf malloc Error, Exit.\n");
         return -1;
     }
 
-    ret = pcie_slave_init();
+    ret = OSA_pcieInit(NULL);
     if(ret < 0){
         printf("pcie slave init Error.\n");
         return -1;
     }
     printf("pci slave init successful.\n");
-
-    data_buf = pcie_slave_reqDatabuf(PCIE_DATA_BUF_SIZE);
-    if(data_buf == NULL){
-        printf("pcie slave require data buf Error.\n");
-        return -1;
-    }
 
     unsigned int i = 0,j;
     UInt32 recv_size;
@@ -119,31 +130,36 @@ Int32 main(Int32 argc,char *argv[])
     total_time = 0;
     prev_time = 0;
 
-/* #ifdef TEST_PCIE_MSI */
-    /* pthread_t pcie_sendCmd_thread; */
-    /* pthread_t pcie_waitCmd_thread; */
-    /* printf("***Test pcie msi*****\n"); */
-    /* ret = pthread_create(&pcie_sendCmd_thread, 0, (void *)sendCmd_thread,0); */
-    /* if(ret < 0){ */
-    /*     printf("sendCmd thread Create Error %s\n", strerror(errno)); */
-    /*     return -1; */
-    /* } */
-    /* ret = pthread_create(&pcie_waitCmd_thread, 0, (void *)waitCmd_thread,0); */
-    /* if(ret < 0){ */
-    /*     printf("waitCmd thread Create Error %s\n", strerror(errno)); */
-    /*     return -1; */
-    /* } */
-/*     pthread_join(pcie_sendCmd_thread, 0); */
-/*     pthread_join(pcie_waitCmd_thread, 0); */
-/* #endif */
-    
+#ifdef TEST_PCIE_MSI
+    pthread_t pcie_sendCmd_thread;
+    pthread_t pcie_waitCmd_thread;
+
+    if(test_cmd){
+        printf("***Test pcie msi*****\n");
+        ret = pthread_create(&pcie_sendCmd_thread, 0, (void *)sendCmd_thread,0);
+        if(ret < 0){
+            printf("sendCmd thread Create Error %s\n", strerror(errno));
+            return -1;
+        }
+    }
+
+    ret = pthread_create(&pcie_waitCmd_thread, 0, (void *)waitCmd_thread,0);
+    if(ret < 0){
+        printf("waitCmd thread Create Error %s\n", strerror(errno));
+        return -1;
+    }
+    /* pthread_join(pcie_sendCmd_thread, 0); */
+    /* pthread_join(pcie_waitCmd_thread, 0); */
+#endif
+
+    int channel_id;
     while(!gTest_exit){
         ret = pcie_slave_getCurTime(&prev_time);
         if(ret < 0){
             printf("get Cur time Error, exit.\n");
             goto err_exit;
         } 
-        ret = pcie_slave_recvData(data_buf, PCIE_DATA_BUF_SIZE, 0);
+        ret = pcie_slave_recvData(local_data_buf, RECV_MAX_SIZE, &channel_id,0);
         if(ret < 0){
             if(ret != PCIEDEV_EBUSY)
                 printf("pcie slave receive data Error.\n");
@@ -151,20 +167,21 @@ Int32 main(Int32 argc,char *argv[])
         }
         if(ret == 0)
             break;  //EOF flag
+
         recv_size = ret;
         total_data_size += recv_size;
-
+        tmp_ptr = (Int32 *)local_data_buf; 
 #ifndef THPT_TEST
         if(i%150 == 0)
             printf("Pcie slave has recieved Data %u-%d.\n", i, recv_size);
 #endif
 
-#ifdef EDMA_TRANSMISSION
-        tmp_ptr = (Int32 *)data_buf;
-#else
-        memcpy(local_data_buf,data_buf, PCIE_DATA_BUF_SIZE);
-        tmp_ptr = (Int32 *)local_data_buf;
-#endif
+/* #ifdef EDMA_TRANSMISSION */
+/*         tmp_ptr = (Int32 *)data_buf; */
+/* #else */
+/*         memcpy(local_data_buf,data_buf, RECV_MAX_SIZE); */
+/*         tmp_ptr = (Int32 *)local_data_buf; */
+/* #endif */
         ret = pcie_slave_getCurTime(&cur_time);
         if(ret < 0){
             printf("get Cur time Error, exit.\n");
@@ -199,6 +216,14 @@ Int32 main(Int32 argc,char *argv[])
                (float)((((UInt32)data_size_tmp) * HZ)/total_time));
 
  err_exit:
+        
+#ifdef TEST_PCIE_MSI
+    if(test_cmd){
+        pthread_cancel(pcie_sendCmd_thread);
+    }
+    pthread_cancel(pcie_waitCmd_thread);
+#endif
+    
     free(local_data_buf);
     pcie_slave_deInit();
 

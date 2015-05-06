@@ -1,5 +1,6 @@
 /*
- * This file contain MACROS for debuging and error logs.
+ * This file contain data structure and function declarations for RC application
+ * to be used to propagate Resource info to every other EP.
  *
  *
  * Copyright (C) 2011 Texas Instruments Incorporated - http://www.ti.com/
@@ -33,36 +34,46 @@
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef __DEBUG_MSG__
-#define __DEBUG_MSG__
 
-#ifdef DEBUG
-#define DEBUG_TEST 1
-#else
-#define DEBUG_TEST 0
-#endif
 
-#define Mb (1<<20)
-#define Gb (1<<30)
-#define THPT_DATA_SIZE (1llu*Gb)
-#define WISCOM_THPT_EPREAD_SYNS
-//校验数据
-#define CONFIG_WISCOM_COMPARE
+#ifndef __RC_HLPR__
+#define __RC_HLPR__
 
-/* int gDebug_enable; */
 
-/*  set_printLevel(void); */
+#include <sys/mman.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include "debug_msg.h"
 
-#define debug_print(fmt, ...) \
-	do { if (DEBUG_TEST || gDebug_enable) fprintf(stdout, "%s:%d:%s(): " fmt, __FILE__, \
-				__LINE__, __func__, ##__VA_ARGS__); } while (0)
+#define VENDOR "/vendor"
+#define DEVICE "/device"
+#define RESOURCE "/resource"
+#define CLASS "/class"
 
-/* in debug mode every thing will be printed
- * error will always be printed
+#define VENDOR_ID 0x104c
+#define DEVICE_ID 0xb800
+
+struct pci_sys_info {
+	unsigned int res_value[7][2];
+	struct pci_sys_info *next;
+};
+
+/*
+ * function declaration
  */
 
-#define err_print(fmt, ...) \
-	do { fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
-				__LINE__, __func__, ##__VA_ARGS__); } while (0)
+int add_node_in_list(struct pci_sys_info *pci_info,
+					struct pci_sys_info **start);
+int free_list(struct pci_sys_info *start);
+int add_resource_in_list(FILE *fr, struct pci_sys_info **start);
+int fetch_my_unique_id(unsigned int *mgmt_area, struct pci_sys_info *node);
+int print_list(struct pci_sys_info *start);
+int dump_info_on_ep(struct pci_sys_info *start, unsigned int *mgmt_area,
+				unsigned int eps, unsigned int startaddr);
+int get_devices(struct pci_sys_info **start);
+int propagate_system_info(struct pci_sys_info *start,
+				int fd, int eps, unsigned int startaddr);
 
 #endif
