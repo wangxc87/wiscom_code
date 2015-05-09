@@ -151,14 +151,14 @@ Int32 pcie_slave_init(struct pciedev_init_config *config)
 
     if(ioctl(gPciedev_slave_fd, TI81XX_GET_SENDCMD_INFO, &buf_info) < 0){
         err_print("Ioctl : GET_SENDCMD_INFO error.\n");
-        return -1;
+        goto init_err_exit;
     }    
-    gPciedev_slave_info.send_cmd = gPciedev_slave_info.mgmt_buf_base + EP_SEND_CMD_OFFSET(buf_info.buf_size);
+    gPciedev_slave_info.send_cmd = gPciedev_slave_info.mgmt_buf_base + buf_info.buf_ptr_offset;//EP_SEND_CMD_OFFSET(buf_info.buf_size);
     gPciedev_slave_info.cmd_buf_size_max = buf_info.buf_size;
     
     if(ioctl(gPciedev_slave_fd, TI81XX_GET_SENDDATA_INFO, &buf_info) < 0){
         err_print("Ioctl : GET_SENDDATA_INFO error.\n");
-        return -1;
+        goto init_err_exit;
     }    
     gPciedev_slave_info.data_buf_size_max = buf_info.buf_size;
     gDatabuf_headPtr = (struct pciedev_databuf_head *) gPciedev_slave_info.data_buf_base;
@@ -179,15 +179,15 @@ init_err_exit:
 static Int32 pcie_slave_sendAck(UInt32 cmd, Int32 en_int)
 {
     int ret = 0;
-
-    /* struct ti81xx_ack_info ack_info; */
-    /* ack_info.cmd = cmd; */
-    /* ack_info.en_int = en_int; */
-    /* ret = ioctl(gPciedev_slave_fd, TI81XX_SEND_ACK, &ack_info); */
-    /* if( ret < 0){ */
-    /*     return -1; */
-    /* } */
-
+#if 1
+    struct ti81xx_ack_info ack_info;
+    ack_info.cmd = cmd;
+    ack_info.en_int = en_int;
+    ret = ioctl(gPciedev_slave_fd, TI81XX_SEND_ACK, &ack_info);
+    if( ret < 0){
+        return -1;
+    }
+#else
     /* gDatabuf_headPtr->ep_rd_flag[devid_to_index(gSelf_id)] |= cmd; */
     gPciedev_mgmt_infoPtr->cmd |= cmd;
     
@@ -199,6 +199,7 @@ static Int32 pcie_slave_sendAck(UInt32 cmd, Int32 en_int)
             return -1;
         }
     }
+#endif
     return 0;    
 }
 
@@ -288,7 +289,7 @@ Int32 pcie_slave_recvCmd(char *buf, int *from_id, struct timeval *tv)
     memcpy_neon(buf, cmd_buf + 8, buf_size );
     
     debug_print("get cmdInfo: buf_size-%d buf_ptr_offset-0x%x.\n", 
-    buf_size, buf_info.buf_ptr_offset);
+                buf_size, buf_info.buf_ptr_offset);
     
    if(ioctl(gPciedev_slave_fd, TI81XX_QUE_CMD, &buf_info) < 0){
         err_print("ioctl error.\n");
@@ -306,10 +307,15 @@ Int32 pcie_slave_sendCmd(char *buf, Int32 to_id, UInt32 buf_size, struct timeval
     volatile int *cmd_ack = (volatile *)&gPciedev_mgmt_infoPtr->cmd;
     UInt32 timeout;
     Int32 *buf_sizep, *buf_idp;
+    Int32 ret = 0;
+    struct ti81xx_ack_info ack_info;
+
     
     if(gPciedev_slave_fd < 0)
         return -1;
     
+    memset(&ack_info, 0, sizeof(struct ti81xx_ack_info));
+
     if(buf_size + 8 > gPciedev_slave_info.cmd_buf_size_max){
         err_print("Send buf size too large.\n");
         return -1;
@@ -328,19 +334,52 @@ Int32 pcie_slave_sendCmd(char *buf, Int32 to_id, UInt32 buf_size, struct timeval
         return -1;
     }
     
+#if 1
+   if(!tv){
+       ack_info.tv_sec = 0xffffff;
+   } else{
+       ack_info.tv_sec = tv->tv_sec;
+       ack_info.tv_usec = tv->tv_usec;
+    }
+      
+    if(!ack_info.tv_sec && !ack_info.tv_usec)//defualt waiting time
+        ack_info.tv_sec = DEFAULT_SEND_TIMEOUT;
+
+    ret = ioctl(gPciedev_slave_fd, TI81XX_WAIT_CMD_ACK, &ack_info);
+    if( ret < 0){
+        err_print("send cmd error.\n");
+        return -1;
+    }
+
+    if(!ack_info.ack_status)
+        return -1;
+    
+    return 0;
+
+#else
     if(!tv)
         timeout = ~0;
     else
         timeout = tv->tv_sec * 5000 + tv->tv_usec/200;
     if(timeout == 0)
         timeout = 5000*DEFAULT_SEND_TIMEOUT;    
- 
+
+    ack_info.tv_sec = 2;
+
     while(timeout){
-        
-        if(*cmd_ack & CMD_ACK){
-            *cmd_ack &= ~CMD_ACK;
-            break;
-        }
+
+    ret = ioctl(gPciedev_slave_fd, TI81XX_WAIT_CMD_ACK, &ack_info);
+    if( ret < 0){
+        err_print("ioctl :send cmd error.\n");
+        return -1;
+    }
+    if(ack_info.ack_status)
+        break;
+    
+        /* if(*cmd_ack & CMD_ACK){ */
+        /*     *cmd_ack &= ~CMD_ACK; */
+        /*     break; */
+        /* } */
             
         
         usleep(200);
@@ -353,7 +392,7 @@ Int32 pcie_slave_sendCmd(char *buf, Int32 to_id, UInt32 buf_size, struct timeval
         if((timeout % 50) == 0)
             debug_print("waiting ack [%d]...\n", timeout);
     }
-    
+#endif
     return 0;
 }
 

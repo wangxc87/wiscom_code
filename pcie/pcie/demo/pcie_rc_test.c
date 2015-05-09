@@ -58,7 +58,7 @@ void *sendCmd_thread(void *arg)
      char recv_cmd[2*1024];
      struct timeval tv;
      printf("%s create Ok.\n", __func__);
-     tv.tv_sec = 2;
+     tv.tv_sec = 60;
      tv.tv_usec = 0;
      while(1){
 #if 1
@@ -224,7 +224,7 @@ Int32 main(Int32 argc,char *argv[])
                 ret = OSA_pcieSendData(to_id, send_data, TEST_DATA_SIZE, 0, sync_mode, NULL);
                 if(ret < 0){
                     printf("Pcie send data %llu Error.\n", i);
-                    goto err_exit;
+                    /* goto err_exit; */
                 }
 #ifndef THPT_TEST
                 if(i%128 == 0)
@@ -235,7 +235,7 @@ Int32 main(Int32 argc,char *argv[])
             }
             printf("[%u]:Total send data loop %llu, size is %llu MBit.\n",
                    loop++, i, (i*TEST_DATA_SIZE)>>20);
-            usleep(10*1000);
+            //            usleep(10*1000);
         }else
             sleep(1);
         

@@ -230,7 +230,7 @@ int main(int argc,char *argv[])
 
     memset((char *)&noClear_config, 0, sizeof(struct pciedev_init_config));
     
-    noClear_config.en_clearBuf = FALSE;
+    noClear_config.en_clearBuf = TRUE;
     switch(operation){
     case OPER_SEND:
         ret = send_file(file_name, to_id);
