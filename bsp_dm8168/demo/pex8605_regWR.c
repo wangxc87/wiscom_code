@@ -73,7 +73,7 @@ int pex8605_write(int fd, int port_num, int reg_addr, int value)
     msgs[0].addr  = PEX8605_SLAVE_DEVADDR;
     msgs[0].flags = 0;
     msgs[0].len   = 8;
-    msgs[0].buf   = buf;
+    msgs[0].buf   = (void *)buf;
 
     data.msgs = msgs;
     data.nmsgs = 1;
@@ -114,13 +114,13 @@ int pex8605_read(int fd, int port_num, int reg_addr, int *value)
     msgs[0].addr  = PEX8605_SLAVE_DEVADDR;
     msgs[0].flags = 0;
     msgs[0].len   = 4;
-    msgs[0].buf   = buf;
+    msgs[0].buf   = (void *)buf;
 
     //read data
     msgs[1].addr = PEX8605_SLAVE_DEVADDR;
     msgs[1].flags = I2C_M_RD;
     msgs[1].len = 4;
-    msgs[1].buf = &buf[4];
+    msgs[1].buf = (void *)&buf[4];
     data.msgs = msgs;
     data.nmsgs = 2;
 

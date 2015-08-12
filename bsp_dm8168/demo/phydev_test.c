@@ -94,7 +94,6 @@ Int32 main(int argc, char **argv)
                 goto exit1;            
         }
         break;
-    defualt :
         fprintf(stdout,"Invalid mode,exit.\n");
         usage(argv[0]);
         goto exit1;

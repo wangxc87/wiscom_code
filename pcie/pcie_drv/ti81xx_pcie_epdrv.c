@@ -209,7 +209,7 @@ static atomic_t          counter = ATOMIC_INIT(0);
 #ifdef CONFIG_WISCOM
 struct fasync_struct *epdrv_async_queue = NULL;
 
-static int data_fifo_num = DATA_BUF_FIFOS;//default 8
+static int data_fifo_num = DATA_BUF_FIFOS;//default 16
 module_param(data_fifo_num, int , S_IRUGO);
 MODULE_PARM_DESC(data_fifo_num,"The buf nums of dataFifo [default 16].");
 
@@ -217,10 +217,13 @@ static int data_fifo_size = DATA_BUF_SIZE;
 module_param(data_fifo_size, int , S_IRUGO);
 MODULE_PARM_DESC(data_fifo_size,"The buf size of dataFifo [default 1M].");
 
-static int cmd_fifo_size = DATA_BUF_SIZE;
-module_param(data_fifo_size, int , S_IRUGO);
-MODULE_PARM_DESC(data_fifo_size,"The buf size of dataFifo [default 1M].");
+static int cmd_fifo_size = CMD_BUF_SIZE;
+module_param(cmd_fifo_size, int , S_IRUGO);
+MODULE_PARM_DESC(cmd_fifo_size,"The buf size of cmdFifo [default 2k].");
 
+static int cmd_fifo_num = CMD_BUF_FIFOS;//default 64
+module_param(cmd_fifo_num, int , S_IRUGO);
+MODULE_PARM_DESC(cmd_fifo_num,"The buf nums of cmdFifo [default 64].");
 
 static int debug=0;
 module_param(debug, int , S_IRUGO|S_IWUSR);
@@ -709,7 +712,7 @@ static struct dma_cnt_conf gDma_cnt_conf = {
 
 extern int ti81xx_edma_rx(struct dma_cnt_conf *cnt, unsigned long dma_phys_src, unsigned long dma_phys_dest, u32 size);
 
-void pciedev_do_work(unsigned long arg);
+static void pciedev_do_work(unsigned long arg);
 #define WORK_QUEQUE_MODE
 #ifdef WORK_QUEQUE_MODE
 DECLARE_WORK(gPciedev_workque, (void *)pciedev_do_work);
@@ -738,7 +741,7 @@ static int put_dataBuf(struct pcie_bufHndl *bufHndl)
 #ifdef WORK_QUEQUE_MODE1
 
     if(wait_event_interruptible(gPciedev_info.data_wq_h, !pcie_buf_isFull(bufHndl)) < 0){
-        printk(KERN_ERR "wait event interrupte.\n");
+        printk(KERN_ERR "wait datafifo Empty event interrupte.\n");
         return pcie_slave_sendAck(DATA_ACK, FALSE);
     }
 
@@ -827,13 +830,87 @@ static int que_dataBuf(struct pcie_bufHndl *bufHndl, struct pciedev_buf_info *bu
     return ret;
 }
 
+
+//cmd operation
+static int put_cmdBuf(struct pcie_bufHndl *bufHndl)
+{
+    char *buf_put = NULL;
+    int buf_size, ret;
+    char *cmd_src = gPciedev_info.recv_cmd;
+
+    if(wait_event_interruptible(gPciedev_info.cmd_wq_h, !pcie_buf_isFull(bufHndl)) < 0){
+        printk(KERN_ERR "wait cmdfifo Empty event interrupte.\n");
+        return pcie_slave_sendAck(CMD_ACK_ERR, FALSE);
+    }
+
+    buf_put = pcie_buf_getEmtpy(bufHndl);
+    if(!buf_put){
+        debug_print("[pcie%d] get cmd EmptyBuf failed.\n", gSelf_id);
+        return pcie_slave_sendAck(CMD_ACK_ERR, FALSE);
+    }
+
+    buf_size = *(int *)cmd_src;
+    memcpy(buf_put, cmd_src, buf_size);
+
+    ret = pcie_buf_setFull(bufHndl, buf_put, buf_size);
+    if(ret < 0){
+        pr_err("[pcie%d] put FullBuf failed.\n ", gSelf_id);
+        return pcie_slave_sendAck(CMD_ACK_ERR, FALSE);
+    }
+
+    ret = pcie_slave_sendAck(CMD_ACK, FALSE);
+    if(ret < 0){
+        pr_err("[pcie%d] send CMD_ACK failed.\n", gSelf_id);
+    }
+    
+    return 0;
+    
+}
+
+static int deQue_cmdBuf(struct pcie_bufHndl *bufHndl, struct pciedev_buf_info *buf_info)
+{
+    char *buf_temp = NULL;
+    u32 buf_size;
+
+    /* wait_event_interruptible_timeout(gPciedev_info.data_wq_h,!pcie_buf_isEmpty(bufHndl), jiffies + 30*HZ); */
+    wait_event_interruptible(gPciedev_info.cmd_wq_h,!pcie_buf_isEmpty(bufHndl));
+    if(pcie_buf_isEmpty(bufHndl))
+    {
+        printk(KERN_DEBUG "%s: wait event timeout.\n", __func__);
+        return -1;
+    }
+
+    buf_size = pcie_buf_getFull(bufHndl, &buf_temp);
+    if(buf_size < 0){
+        pr_debug("[pcie%d] get cmd FullBuf failed.\n", gSelf_id);
+        return -1;
+    }
+
+    debug_print( "%s: GET cmdBuf :ptr-0x%lx size:%u.\n",__func__, (unsigned long )buf_temp, (unsigned int)buf_size);
+    
+    buf_info->buf_kptr = buf_temp;
+    buf_info->buf_ptr_offset = buf_temp - gPciedev_info.recvBufObj.cmd_buf_base;
+    buf_info->buf_size = buf_size;
+    return 0;
+}
+
+static int que_cmdBuf(struct pcie_bufHndl *bufHndl, struct pciedev_buf_info *buf_info)
+{
+    int ret = 0;
+    if (pcie_buf_setEmpty(bufHndl, buf_info->buf_kptr) <0)
+        ret = -1;
+    wake_up(&gPciedev_info.cmd_wq_h);
+    return ret;
+}
+
 void pciedev_do_work(unsigned long arg)
 {
     struct mgmt_info *gPciedev_mgmt_infoPtr = gPciedev_info.cmd_head_ptr;
     do {
         if((gPciedev_mgmt_infoPtr->cmd & SEND_CMD)== SEND_CMD){
             gPciedev_mgmt_infoPtr->cmd &= ~SEND_CMD;//clear SEND_CMD bit
-            //         put_cmdBuf(&gPciedev_bufObj.cmd_bufHndl);
+            put_cmdBuf(&gPciedev_info.recvBufObj.cmd_bufHndl);
+            wake_up(&gPciedev_info.cmd_wq_h);
         }
     
         if((gPciedev_mgmt_infoPtr->cmd & SEND_DATA)== SEND_DATA){
@@ -950,26 +1027,26 @@ static long ti81xx_ep_pcie_ioctl(struct file *file, unsigned int cmd,
         }
         break;
     case TI81XX_DEQUE_DATA:
-    {
-        struct pciedev_buf_info buf_info;
-        int ret;
-        if(!arg){
-            pr_err("ioctrl: DEQUE_DATA invalid arg.\n");
-            return -1;
-        }
-        ret = deQue_dataBuf(&gPciedev_info.recvBufObj.data_bufHndl, &buf_info);
+        {
+            struct pciedev_buf_info buf_info;
+            int ret;
+            if(!arg){
+                pr_err("ioctrl: DEQUE_DATA invalid arg.\n");
+                return -1;
+            }
+            ret = deQue_dataBuf(&gPciedev_info.recvBufObj.data_bufHndl, &buf_info);
 
-        if(ret < 0){
-            pr_err("Ioctrl: DEQUE_DATA  get data buf Error.\n");
-            return -1;
-        }
+            if(ret < 0){
+                pr_err("Ioctrl: DEQUE_DATA  get data buf Error.\n");
+                return -1;
+            }
 
-        if(copy_to_user((char *)argp, &buf_info, sizeof(struct pciedev_buf_info))){
-            pr_err("IOctrl: DEQUE_DATA  copy_to_user failed.\n");
-            return -1;
+            if(copy_to_user((char *)argp, &buf_info, sizeof(struct pciedev_buf_info))){
+                pr_err("IOctrl: DEQUE_DATA  copy_to_user failed.\n");
+                return -1;
+            }
         }
-    }
-       break;
+        break;
     case TI81XX_QUE_DATA:
         {
             struct pciedev_buf_info buf_info;
@@ -987,6 +1064,83 @@ static long ti81xx_ep_pcie_ioctl(struct file *file, unsigned int cmd,
             }
         }
         break;
+    case TI81XX_RESET_CMDQUE:
+        {
+            int ret = 0;
+            ret = pcie_buf_reset(&gPciedev_info.recvBufObj.cmd_bufHndl);
+            if(ret < 0)
+                return ret;
+        }
+        break;
+    case TI81XX_DEQUE_CMD:
+        {
+            struct pciedev_buf_info buf_info;
+            int ret;
+            if(!arg){
+                pr_err("ioctrl: DEQUE_CMD invalid arg.\n");
+                return -1;
+            }
+            ret = deQue_cmdBuf(&gPciedev_info.recvBufObj.cmd_bufHndl, &buf_info);
+
+            if(ret < 0){
+                pr_err("Ioctrl: DEQUE_CMD  get data buf Error.\n");
+                return -1;
+            }
+
+            if(copy_to_user((char *)argp, &buf_info, sizeof(struct pciedev_buf_info))){
+                pr_err("IOctrl: DEQUE_CMD  copy_to_user failed.\n");
+                return -1;
+            }
+        }
+        break;
+    case TI81XX_QUE_CMD:
+        {
+            struct pciedev_buf_info buf_info;
+            if(!arg){
+                pr_err("ioctrl: QUE_CMD invalid arg.\n");
+                return -1;
+            }
+            if(copy_from_user(&buf_info, (char *)argp, sizeof(struct pciedev_buf_info)))        {
+                pr_err("ioctrl: QUE_CMD copy_from_user failed.\n");
+                return -1;
+            }
+            if(que_cmdBuf(&gPciedev_info.recvBufObj.cmd_bufHndl, &buf_info) < 0){
+                pr_err("deQue_cmdBuf error.\n");
+                return -1;
+            }
+        }
+        break;
+    case TI81XX_GET_SENDCMD_INFO:
+        {
+            struct pciedev_buf_info buf_info;
+            if(!arg){
+                pr_err("ioctrl: QUE_CMD invalid arg.\n");
+                return -1;
+            }
+            buf_info.buf_ptr_offset = (char *)gPciedev_info.send_cmd - (char *)gLocal_resv_buf;
+            buf_info.buf_size = cmd_fifo_size;
+
+            if(copy_to_user((char *)argp, &buf_info, sizeof(struct pciedev_buf_info))){
+                pr_err("IOctrl: DEQUE_CMD  copy_to_user failed.\n");
+                return -1;
+            }
+        }
+        break;
+    case TI81XX_GET_SENDDATA_INFO:
+        {
+            struct pciedev_buf_info buf_info;
+            if(!arg){
+                pr_err("ioctrl: QUE_CMD invalid arg.\n");
+                return -1;
+            }
+            buf_info.buf_size = data_fifo_size;
+
+            if(copy_to_user((char *)argp, &buf_info, sizeof(struct pciedev_buf_info))){
+                pr_err("IOctrl: DEQUE_CMD  copy_to_user failed.\n");
+                return -1;
+            }
+        }
+        break;        
 #endif
 	default:
 		pr_err("Invalid cmd passed\n");
@@ -1091,7 +1245,6 @@ static int ti81xx_setup_msi()
 static irqreturn_t ti81xx_ep_pcie_handle(int irq, void *dev)
 {
 	int i = 0;
-    struct mgmt_info *gPciedev_mgmt_infoPtr = gPciedev_info.cmd_head_ptr;
 	while (i <= 1500) {
 		if (__raw_readl(reg_vir + MSI0_IRQ_STATUS) != 0) {
 			if (device_id >= 0xb801)
@@ -1106,10 +1259,8 @@ static irqreturn_t ti81xx_ep_pcie_handle(int irq, void *dev)
 			wake_up_interruptible(&readq);
 #ifdef CONFIG_WISCOM
 #ifdef WORK_QUEQUE_MODE
-            /* if((gPciedev_mgmt_infoPtr->cmd & SEND_CMD) || (gPciedev_mgmt_infoPtr->cmd & SEND_DATA)) */
                 schedule_work(&gPciedev_workque);
 #else
-            /* if((gPciedev_mgmt_infoPtr->cmd & SEND_CMD) || (gPciedev_mgmt_infoPtr->cmd & SEND_DATA)) */
                 tasklet_schedule(&gPciedev_tasklet);
 #endif
             if(epdrv_async_queue)
@@ -1155,19 +1306,27 @@ static int ti81xx_ep_pcie_init(void)
 	int ret = 0;
     int i = 0;
     struct kfifo_buf_create_arg buf_init;
-
+    u32 data_fifo_total_size = data_fifo_num * data_fifo_size;
+    u32 cmd_fifo_total_size = cmd_fifo_num * cmd_fifo_size;
+    u32 cmd_headinfo_size = sizeof(struct mgmt_info) + cmd_fifo_size*2;
+    
     if (!ti81xx_ep_mem_size)
 		pr_warn(DRIVER_NAME ": *** WARNING: "
 				"No memory reserved for PCIe transfers.\n\t"
 				"Append pcie_mem<size> to kernel command line "
 				"to use mmap/DMA on reserved memory.\n");
 
-    if(data_fifo_num * data_fifo_size + RSVMEM_DATA_BUF_OFFSET > ti81xx_ep_mem_size){
-        printk(KERN_ERR "Error: request fifo size is too large, more than %u", ti81xx_ep_mem_size);
+    if(data_fifo_total_size + RSVMEM_DATA_BUF_OFFSET > ti81xx_ep_mem_size){
+        printk(KERN_ERR "Error: request data fifo size is too large, more than %u", ti81xx_ep_mem_size - RSVMEM_DATA_BUF_OFFSET);
         return -1;
     }
 
-    
+    if(cmd_fifo_total_size + cmd_headinfo_size > RSVMEM_CMD_BUF_SIZE){
+        printk(KERN_ERR "Error: request cmd fifo size is too large, more than %u", RSVMEM_CMD_BUF_SIZE - cmd_headinfo_size);
+        return -1;
+        
+    }
+        
 	ret = alloc_chrdev_region(&ti81xx_ep_pcie_dev, DEV_MINOR, DEVICENO,
 							TI81XX_PCIE_MODFILE);
 	if (ret < 0) {
@@ -1261,22 +1420,37 @@ static int ti81xx_ep_pcie_init(void)
     gPciedev_info.recv_data = (char *)gLocal_outboud_buf + sizeof(struct pciedev_databuf_head);
     gPciedev_info.cmd_head_ptr = (struct mgmt_info *)gLocal_resv_buf;
     gPciedev_info.data_head_ptr = (struct pciedev_databuf_head *)gLocal_outboud_buf;
+    gPciedev_info.recv_cmd = (char *)gLocal_resv_buf + sizeof(struct mgmt_info);
+    gPciedev_info.send_cmd = (char *)gLocal_resv_buf + sizeof(struct mgmt_info) + cmd_fifo_size;
     
     buf_init.numBuf = data_fifo_num;
     for(i = 0; i < data_fifo_num; i ++){
         buf_init.virtAddr[i] = (char *)gLocal_resv_buf + RSVMEM_DATA_BUF_OFFSET + data_fifo_size * i;
-        printk(KERN_DEBUG "%s: dataFifo map virtAddr %d-0x%lx", __func__, i, (unsigned long)buf_init.virtAddr[i]);
+        debug_print(KERN_DEBUG "%s: dataFifo map virtAddr %d-0x%lx", __func__, i, (unsigned long)buf_init.virtAddr[i]);
     }
     
     ret = pcie_buf_init(&gPciedev_info.recvBufObj.data_bufHndl, &buf_init);
     if(ret < 0){
-        pr_err(DRIVER_NAME ":init buffifo failed.\n");
+        pr_err(DRIVER_NAME ":init data buffifo failed.\n");
         pcie_buf_deInit(&gPciedev_info.recvBufObj.data_bufHndl);
         goto ep_init_err;
     }
     gPciedev_info.recvBufObj.data_buf_base = (char *)gLocal_resv_buf;
 
-buf_init.numBuf = 
+    buf_init.numBuf = cmd_fifo_num;
+    for(i = 0; i < cmd_fifo_num; i ++){
+        buf_init.virtAddr[i] = (char *)gLocal_resv_buf + cmd_headinfo_size + cmd_fifo_size * i;
+        debug_print(KERN_DEBUG "%s: cmdFifo map virtAddr %d-0x%lx", __func__, i, (unsigned long)buf_init.virtAddr[i]);
+    }
+    ret = pcie_buf_init(&gPciedev_info.recvBufObj.cmd_bufHndl, &buf_init);
+    if(ret < 0){
+        pr_err(DRIVER_NAME ":init cmd buffifo failed.\n");
+        pcie_buf_deInit(&gPciedev_info.recvBufObj.data_bufHndl);
+        pcie_buf_deInit(&gPciedev_info.recvBufObj.cmd_bufHndl);
+        goto ep_init_err;
+    }
+    gPciedev_info.recvBufObj.cmd_buf_base = (char *)gLocal_resv_buf;
+    
     
     init_waitqueue_head(&gPciedev_info.data_wq_h);
     init_waitqueue_head(&gPciedev_info.cmd_wq_h);
@@ -1326,6 +1500,7 @@ static void ti81xx_ep_pcie_exit(void)
 	class_destroy(ti81xx_pci_class);
 #ifdef CONFIG_WISCOM
     pcie_buf_deInit(&gPciedev_info.recvBufObj.data_bufHndl);
+    pcie_buf_deInit(&gPciedev_info.recvBufObj.cmd_bufHndl);
 #endif
 	iounmap((void *)reg_vir);
 	iounmap((void *)gLocal_outboud_buf);

@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <signal.h>
+#include <unistd.h>
 #include "pcie_std.h"
 #include "ti81xx_ep.h"
 #include "pcie_common.h"
@@ -33,7 +34,6 @@ void *sendCmd_thread(void *arg)
 
 void *waitCmd_thread(void *arg)
 {
-    int ret;
     int recv_size, from_id;
     char recv_cmd[2*1024];
     printf("%s create Ok.\n", __func__);
@@ -67,7 +67,6 @@ void signal_fxn(int signo)
 Int32 main(Int32 argc,char *argv[])
 {
     Int32 ret;
-    char *data_buf;
     char *local_data_buf;
     unsigned long long total_data_size = 0;
     
@@ -159,7 +158,7 @@ Int32 main(Int32 argc,char *argv[])
             printf("get Cur time Error, exit.\n");
             goto err_exit;
         } 
-        ret = pcie_slave_recvData(local_data_buf, RECV_MAX_SIZE, &channel_id,0);
+        ret = OSA_pcieRecvData(local_data_buf, RECV_MAX_SIZE, &channel_id,0);
         if(ret < 0){
             if(ret != PCIEDEV_EBUSY)
                 printf("pcie slave receive data Error.\n");
@@ -225,7 +224,7 @@ Int32 main(Int32 argc,char *argv[])
 #endif
     
     free(local_data_buf);
-    pcie_slave_deInit();
+    OSA_pcieDeInit();
 
     printf("Pcie slave Test exit.\n");
 

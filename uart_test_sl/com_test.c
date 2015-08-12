@@ -27,6 +27,7 @@
 #include <termio.h>
 #include <time.h>
 #include <sys/select.h>
+#include <signal.h>
 
 #define MAX_BUF_SIZE     2048
 static char buf[MAX_BUF_SIZE+2];
@@ -318,6 +319,15 @@ static void wait(unsigned int sec, unsigned int usec)
     return;
 }
 
+static int gTest_exit = 0;
+void signal_fxn(int signo)
+{
+        if(signo == SIGQUIT){
+                printf("ctrl+ \\ enter, exit.\n");
+                gTest_exit = 1;
+        }
+}
+
 int main(int argc, char *argv[])
 {
     int fd;
@@ -403,6 +413,9 @@ int main(int argc, char *argv[])
         }
     }
 
+    signal(SIGQUIT, signal_fxn);
+    printf("Press < ctrl + \\ > to exit.\n");
+    
     fd = open(dev_name, O_RDWR);//block ctl
     if (fd < 0)
     {
@@ -429,61 +442,61 @@ int main(int argc, char *argv[])
 #define TEST_STRINGS ("123456789abcdefghi")
         memcpy(buf, TEST_STRINGS, strlen(TEST_STRINGS));
         */
-        while (1)
-        {
-            if(( 0 == usec) && (0 == sec)){
-                if((len = read(0, buf, MAX_BUF_SIZE)) <= 0 )
-                    break;
+        while (1) {
+                if(( 0 == usec) && (0 == sec)){
+                        if((len = read(0, buf, MAX_BUF_SIZE)) <= 0 )
+                                break;
 
-                if (len == 1)
-                {
-                    buf[0] = MY_END_CHAR;
-                    buf[1] = 0;
-                    write_data(fd, buf, len);
-                    break;
+                        if (len == 1)
+                        {
+                                buf[0] = MY_END_CHAR;
+                                buf[1] = 0;
+                                write_data(fd, buf, len);
+                                break;
+                        }
+                }else {
+                        len = strlen(buf);
+                        wait(sec, usec);
                 }
-            }else {
-                len = strlen(buf);
-                wait(sec, usec);
-            }
 
-            /* send a pack */
-            i = write_data(fd, buf, len);
-            if (i == 0)
-            {
-                fprintf(stderr, "Send data error!\n");
-                break;
-            }
+                /* send a pack */
+                i = write_data(fd, buf, len);
+                if (i == 0)
+                {
+                        fprintf(stderr, "Send data error!\n");
+                        break;
+                }
 
-            //count += len;
-            //fprintf(stderr, "Send %d bytes\n", len);
+                if(gTest_exit)
+                        break;
+                //count += len;
+                //fprintf(stderr, "Send %d bytes\n", len);
         }
+    }   else  {
 
-    }
-    else
-    {
+            fprintf(stderr, "Begin to recv:\n");
 
-        fprintf(stderr, "Begin to recv:\n");
-
-        len = MAX_BUF_SIZE;
+            len = MAX_BUF_SIZE;
         
-        while (1)
-        {
-            /* read a pack */
-            i = read_data(fd, buf, len);
-            if (i > 0)
+            while (1)
             {
-                //count += i;
-                //fprintf(stderr, "Recv %d byte\n", i);
-                printf("%s", buf);
-                fflush(stdout);
-                if (buf[i-1] == MY_END_CHAR)
-                {
-                    break;
-                }
+                    /* read a pack */
+                    i = read_data(fd, buf, len);
+                    if (i > 0)
+                    {
+                            //count += i;
+                            //fprintf(stderr, "Recv %d byte\n", i);
+                            printf("%s", buf);
+                            fflush(stdout);
+                            if (buf[i-1] == MY_END_CHAR)
+                            {
+                                    break;
+                            }
+                    }
+                     if(gTest_exit)
+                        break;
+               //            usleep(500);
             }
-            //            usleep(500);
-        }
     }
 
 //       reset_port(fd);

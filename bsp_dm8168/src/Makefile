@@ -2,8 +2,8 @@ SRCS = $(wildcard *.c)
 OBJS = $(SRCS:.c=.o)
 
 TARGET = libbsp4dm8168.so
-CFLAGS += -I ../inc -I $(INC_DIR)
-
+CFLAGS += -I ../inc  -I${KERNELDIR}/include
+#  -I$(linuxdevkit_PATH)/usr/include
 .PHONY: all clean install
 
 all: ${OBJS}
@@ -13,7 +13,7 @@ clean:
 	-rm -rf $(TARGET) *.o
 
 install:
-	cp $(TARGET) $(ROOTFS_DIR)/usr/lib/
+	cp $(TARGET) $(ROOT)/usr/lib/
 
 %.o: %.c
 	$(CC) $(CFLAGS) -fPIC -c $<

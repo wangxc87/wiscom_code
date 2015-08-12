@@ -1,0 +1,2 @@
+#arm-none-linux-gnueabi-gcc record-mkv.c -I/home/lzcx/project/613/dm6467/dvsdk/git/include -I/home/lzcx/build/include -I/home/lzcx/build/include/opencore-amrnb -L/home/lzcx/build/lib  -lasound -lopencore-amrnb
+arm-none-linux-gnueabi-gcc audio_loopback_alsa.c -I/home/lzcx/project/613/dm6467/dvsdk/git/include -I/home/lzcx/build/include -I/home/lzcx/build/include/opencore-amrnb -L/home/lzcx/build/lib  -lasound -lopencore-amrnb

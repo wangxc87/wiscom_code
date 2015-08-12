@@ -1,7 +1,7 @@
-#include ./arm-config.mk
-include ./Rules.make
+include Rules.make
 
-SUB_DIRS = src demo hw_test
+SUB_DIRS = src demo bsp_pcie
+SUB_DIRS += hw_test 
 
 .PHONY: all clean install $(SUB_DIRS) $(DEMO_DIRS)
 
@@ -14,4 +14,5 @@ clean:
 	for dir in $(SUB_DIRS); do $(MAKE) -C $$dir clean; done
 
 install:
+	mkdir -p $(EXE_INSTALL_DIR)
 	for dir in $(SUB_DIRS); do $(MAKE) -C $$dir install; done

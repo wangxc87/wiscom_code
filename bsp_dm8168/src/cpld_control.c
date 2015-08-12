@@ -112,7 +112,22 @@ static struct BoardId_obj gBoardId_obj[] = {
         GET_BOARDID(PCB_VERSION_IAMC_ID, FUN_VERSION_KTM6202_ID),
         "KTM6202",
         "IAMC"
-    }
+    },
+   {
+        GET_BOARDID(PCB_VERSION_DECH_ID, FUN_VERSION_KDC9208EH_ID),
+        "KDC9208EH",
+        "DECH"
+    },
+    {
+        GET_BOARDID(PCB_VERSION_DECH_ID, FUN_VERSION_KDC9212EH_ID),
+        "KDC9212EH",
+        "DECH"
+    },
+    {
+        GET_BOARDID(PCB_VERSION_DECH_ID, FUN_VERSION_KDC9216EH_ID),
+        "KDC9216EH",
+        "DECH"
+    }    
 };
 
 static Int32 Tvp5158_init(void)
@@ -190,16 +205,15 @@ Int32 BSP_cpldInit(void)
     return BSP_OK;
 }
 
-static Int32 cpld_write(Int8 reg,Int8 value)
+static Int32 cpld_write(Int8 reg, UInt8 value)
 {
-    Int8 buf[2];
+    UInt8 buf[2];
     Int32 ret = BSP_OK;
     buf[0] = reg;  //cpld仅支持单字节读写
     buf[1] = value;
-/*
-  ret = i2cRawWrite8(gcpld_fd,CPLD_SLAVE_DEVADDR,buf,2);
-*/if(gcpld_fd > 0){
-        ret = i2cWrite8(gcpld_fd,CPLD_SLAVE_DEVADDR,&reg,&value,1);
+    
+    if(gcpld_fd > 0){
+        ret = i2cWrite8(gcpld_fd,CPLD_SLAVE_DEVADDR,(UInt8 *)&reg,(UInt8 *)&value,1);
 #if 0
         if(ret != BSP_OK){
             BSP_Print(BSP_PRINT_LEVEL_ERROR,"CPLD Write ERROR(0x%x)",ret);
@@ -212,11 +226,11 @@ static Int32 cpld_write(Int8 reg,Int8 value)
     }
 }
 
-static Int32 cpld_read(Int8 reg,Int8 *value)
+static Int32 cpld_read(Int8 reg,UInt8 *value)
 {
     Int32 ret = BSP_OK;
     if(gcpld_fd > 0){
-        ret = i2cRead8(gcpld_fd,CPLD_SLAVE_DEVADDR,&reg,value,1);
+        ret = i2cRead8(gcpld_fd,CPLD_SLAVE_DEVADDR,(UInt8 *)&reg, (UInt8 *)value,1);
 #if 0
         if(ret != BSP_OK){
             BSP_Print(BSP_PRINT_LEVEL_ERROR,"CPLD Read ERROR(0x%x)",ret);
@@ -237,7 +251,7 @@ Int32 BSP_cpldDeinit(void)
 Int32 BSP_cpldResetBoard(BSP_cpldResetDev reset_cmd,Int32 dev_num)
 {
     Int32 ret;
-    Int8 tmp0,mask = 0;
+    UInt8 tmp0,mask = 0;
 
     ret = cpld_read(CPLD_CONTROL_RESET_REG,&tmp0);
     if(ret != BSP_OK){
@@ -313,7 +327,7 @@ Int32 BSP_cpldResetBoard(BSP_cpldResetDev reset_cmd,Int32 dev_num)
 //enable 30s Hw watchdog
 Int32 BSP_cpldEnableHwWatchdog(void)
 {
-    Int8 tmp;
+    UInt8 tmp;
     Int32 ret;
     ret = cpld_read(CPLD_CONTROL_WD_ENABLE_REG,&tmp);
     if(ret != BSP_OK){
@@ -330,7 +344,7 @@ Int32 BSP_cpldEnableHwWatchdog(void)
 //disable 30s Hw watchdog
 Int32 BSP_cpldDisableHwWatchdog(void)
 {
-    Int8 tmp;
+    UInt8 tmp;
     Int32 ret;
     ret = cpld_read(CPLD_CONTROL_WD_ENABLE_REG,&tmp);
     if(ret != BSP_OK){
@@ -348,7 +362,7 @@ Int32 BSP_cpldDisableHwWatchdog(void)
 //cpu software watchdog
 Int32 BSP_cpldEnableSoftWatchdog(void)
 {
-    Int8 tmp;
+    UInt8 tmp;
     Int32 ret;
     ret = cpld_read(CPLD_CONTROL_WD_ENABLE_REG,&tmp);
     if(ret != BSP_OK){
@@ -378,7 +392,7 @@ Int32 BSP_cpldFeedSoftWatchdog(void)
 
 Int32 BSP_cpldDisableSoftWatchdog(void)
 {
-    Int8 tmp;
+    UInt8 tmp;
     Int32 ret;
     ret = cpld_read(CPLD_CONTROL_WD_ENABLE_REG,&tmp);
     if(ret != BSP_OK){
@@ -436,7 +450,7 @@ Int32 BSP_cpldReadSensor(UInt32 *status)
         return BSP_OK;
      }
 
-    ret = cpld_read(CPLD_CONTROL_SENSOR_REG0,&tmp0);
+    ret = cpld_read(CPLD_CONTROL_SENSOR_REG0, &tmp0);
     if(ret != BSP_OK){
         BSP_Print(BSP_PRINT_LEVEL_ERROR,"%s senorReg0 Error .\n",__func__);
         return BSP_ERR_READ;
@@ -453,7 +467,7 @@ Int32 BSP_cpldReadSensor(UInt32 *status)
     return BSP_OK;
 }
 
-    static Int32 getBoardName(UInt8 board_id, char *boardName, char *pcbName)
+static Int32 getBoardName(UInt8 board_id, char *boardName, char *pcbName)
 {
     struct BoardId_obj *pBoardId_obj;
     Int32 i, boardTpye_numMax;
@@ -491,11 +505,11 @@ Int32 BSP_cpldReadBoardID(UInt32 *board_id)
     }
     if((version_value != 0)&& (version_value != 0xff)){
         gPCB_VersionID   = version_value >> 4;
-        gFUNC_VersionID  = version_value & 0x0f;
+        gFUNC_VersionID  = version_value & 0x07;
     }
     if(board_id != NULL)
         *board_id = version_value;
-    if(getBoardName(version_value, gBoardName, gPcbName) != BSP_OK)
+    if(getBoardName(version_value & 0xf7, gBoardName, gPcbName) != BSP_OK)
         BSP_Print(BSP_PRINT_LEVEL_DEBUG,"getBoardName Error.\n");
     
     return BSP_OK;
@@ -581,7 +595,7 @@ Int32 BSP_cpldSetPWMFanSpeed(UInt32 *pwdSpeed)
             *pwdSpeed = DEFINE_CPLD_PWDFAN_DEFUALT_SPEED;
     }
     temp = *pwdSpeed;
-    if(cpld_write(CPLD_CONTROL_PWMFAN_SPEED_REG,temp) != BSP_OK){
+    if(cpld_write(CPLD_CONTROL_PWMFAN_SPEED_REG, temp) != BSP_OK){
         BSP_Print(BSP_PRINT_LEVEL_ERROR,"%s Error.\n",__func__);
         return BSP_ERR_WRITE;
     }

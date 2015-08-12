@@ -1,0 +1,33 @@
+1、pcie bsp层源码树如下：
+.
+├── demo
+│   ├── Makefile
+│   ├── pcie_ep_test.c
+│   ├── pcie_file_op.c
+│   └── pcie_rc_test.c
+├── inc
+│   ├── osa_pcie.h
+│   ├── pcie_common.h
+│   ├── pcie_std.h
+│   ├── ti81xx_ep.h
+│   └── ti81xx_rc.h
+├── Makefile
+├── readme
+└── src
+    ├── Makefile
+    ├── memcpy_neon.S
+    ├── osa_pcie.c
+    ├── sysdep.h
+    ├── ti81xx_ep.c
+    └── ti81xx_rc.c
+
+2、文件说明
+demo 数据通信范例程序
+	pcie_ep_test.c 从机测试程序
+	pcie_file_op.c 主机向从机传输文件工具
+	pcie_rc_test.c	主机测试程序
+src  接口实现函数
+inc  头文件
+
+3、使用
+添加包含头文件 osa_pcie.h即可

@@ -39,6 +39,11 @@ extern "C" {
 #define FUN_VERSION_EPS6000DMG_ID   (0x01)  /*智能视频分析终端（无风扇）,名称调整为EPS6000EM*/
 #define FUN_VERSION_KTM6202_ID      (0x02)  /*智能交通终端管理服务器*/
     
+#define PCB_VERSION_DECH_ID              (0x06)
+#define FUN_VERSION_KDC9208EH_ID    (0x01) /*8路高清解码*/
+#define FUN_VERSION_KDC9212EH_ID    (0x02) /*12路高清解码*/
+#define FUN_VERSION_KDC9216EH_ID    (0x03) /*16路高清解码*/
+        
 #define GET_BOARDID(pcb_id, fun_id)  ((pcb_id << 4) | fun_id)
 
     extern UInt8 gPCB_VersionID;

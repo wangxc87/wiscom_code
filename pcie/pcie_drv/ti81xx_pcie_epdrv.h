@@ -40,6 +40,11 @@
 #define TI81XX_DEQUE_DATA    0
 #define TI81XX_QUE_DATA      1
 #define TI81XX_RESET_DATAQUE 2
+#define TI81XX_DEQUE_CMD     3
+#define TI81XX_QUE_CMD       4
+#define TI81XX_RESET_CMDQUE  5
+#define TI81XX_GET_SENDCMD_INFO  6
+#define TI81XX_GET_SENDDATA_INFO  7
 /* #define TI81XX_DEQUE_DATA  _IOR('P', 15, struct pciedev_buf_info)     */
 /* #define TI81XX_QUE_DATA    _IOW('P', 16, struct pciedev_buf_info)     */
     

@@ -3,6 +3,8 @@ DVRRDK_ROOT=/home/wxc/dsp/DVRRDK_04.01.00.02
 
 #CROSS COMPILE
 CODEGEN_PATH_A8 = $(DVRRDK_ROOT)/ti_tools/cgt_a8/arago/linux-devkit
+linuxdevkit_PATH := $(CODEGEN_PATH_A8)/arm-arago-linux-gnueabi
+
 
 CROSS_COMPILE = arm-arago-linux-gnueabi
 CC=$(CODEGEN_PATH_A8)/bin/$(CROSS_COMPILE)-gcc
@@ -21,7 +23,7 @@ ROOTFS_DIR=$(DVRRDK_ROOT)/target/rfs_816x
 #library install dir
 LIBRARY_INSTALL_DIR =$(ROOTFS_DIR)/usr/lib
 #EXE INSTALL DIR
-EXE_INSTALL_DIR = $(ROOTFS_DIR)/home/root
+EXE_INSTALL_DIR = $(ROOTFS_DIR)/home/root/bsp_dm8168
 
 #Libc path
 #LDFLAGS="-isystem $(TOOLCHAIN_DIR)/$(COMPILER_PREFIX)/libc/lib"
@@ -33,10 +35,19 @@ LIB_DIR = -I$(DVRRDK_DEVKIT)/${CROSS_COMPILE}/lib
 #include path
 export INC_DIR = -I$(DVRRDK_DEVKIT)/${CROSS_COMPILE}/usr/include -I$(KERNEL_DIR)/include -I$(KERNEL_DIR)/arch/arm/include/ -I$(KERNEL_DIR)/arch/arm/plat-omap/include/
 
+CFLAGS += -Wall
+
+KERNELDIR = $(KERNEL_DIR)
+ROOT = $(ROOTFS_DIR)
+
+export KERNELDIR
 export CC
 export LD
 export AR
 export EXE_INSTALL_DIR
 export LIBRARY_INSTALL_DIR
 export ROOTFS_DIR
+export ROOT
+export linuxdevkit_PATH
+export CFLAGS
 #INC_DIR += LIB_DIR

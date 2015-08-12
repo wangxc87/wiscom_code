@@ -103,7 +103,6 @@ void *sensorAlarm_thread(void *arg)
 
 void *statusLed_thread(void *arg)
 {
-    int ret;
     while(1){
         //test led on
         if(BSP_runLedSet(BSP_LED_ON) != BSP_OK){

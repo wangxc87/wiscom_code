@@ -66,7 +66,7 @@ static u32		*mgmt_area_start;
 static u32		device_ep;
 
 #ifndef _DM81XX_EXCLUDE_
-static u32		pci_mem;
+static u32		gLocal_outboud_mem;
 #endif
 
 static atomic_t         irq_raised = ATOMIC_INIT(0);
@@ -90,7 +90,38 @@ static int msi_on(u32 device_id);
 static int msi_off(u32 device_id);
 
 #ifdef CONFIG_WISCOM
+struct pcieRc_info {
+    struct pciedev_info ep_info[PCIE_EP_MAX_NUMBER];
+    wait_queue_head_t data_wq_h;
+    wait_queue_head_t cmd_wq_h;
+    struct pciedev_bufObj recvBufObj; //received data fifo
+    struct pciedev_databuf_head *data_head_ptr;
+};
+
+static struct pcieRc_info gPciedev_info;
+
+#define RC_RESV_MEM_SIZE_DEFUALT (6*1024*1024)
+
 static struct  fasync_struct *ep_hlpr_async_queue = NULL;
+
+static int resv_mem_size = RC_RESV_MEM_SIZE_DEFUALT;
+module_param(resv_mem_size,int, S_IRUGO);
+MODULE_PARM_DESC(resv_mem_size, "The reserved mem size of RC [default 6M]");
+
+static int cmd_fifo_size = CMD_BUF_SIZE;
+module_param(cmd_fifo_size, int , S_IRUGO);
+MODULE_PARM_DESC(cmd_fifo_size,"The buf size of cmdFifo [default 2k].");
+
+static int cmd_fifo_num = CMD_BUF_FIFOS;//default 64
+module_param(cmd_fifo_num, int , S_IRUGO);
+MODULE_PARM_DESC(cmd_fifo_num,"The buf nums of cmdFifo [default 64].");
+
+static int debug=0;
+module_param(debug, int , S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(debug,"The debug print enable [default 0].");
+#define debug_print(fmt, arg...) do{ if(debug) printk(KERN_DEBUG fmt, ##arg);}while(0)
+
+
 static int ti81xx_ep_hlpr_open(struct inode *inodp,struct file *filp)
 {
     return 0;
@@ -101,6 +132,102 @@ static int ti81xx_ep_hlpr_release(struct inode *inodp,struct file *filp)
 {
     ti81xx_ep_hlpr_fasync(-1,filp, 0);
     return 0;
+}
+
+DECLARE_WORK(gPciedev_workque_rc, (void *)rc_do_work);
+static void rc_do_work(unsigned long arg);
+
+static int put_cmdBuf(struct pcie_bufHndl *bufHndl, struct pciedev_info *ep_info)
+{
+    char *buf_put = NULL;
+    int buf_size, ret;
+    char *cmd_src = ep_info->recv_cmd;
+
+    if(wait_event_interruptible(gPciedev_info.cmd_wq_h, !pcie_buf_isFull(bufHndl)) < 0){
+        printk(KERN_ERR "wait cmdfifo Empty event interrupte.\n");
+        return pcie_slave_sendAck(CMD_ACK_ERR, FALSE);
+    }
+
+    buf_put = pcie_buf_getEmtpy(bufHndl);
+    if(!buf_put){
+        debug_print("[pcie%d] get cmd EmptyBuf failed.\n", gSelf_id);
+        return pcie_slave_sendAck(CMD_ACK_ERR, FALSE);
+    }
+
+    buf_size = (int *)cmd_src;
+    memcpy(buf_put, cmd_src, buf_size);
+
+    ret = pcie_buf_setFull(bufHndl, buf_put, buf_size);
+    if(ret < 0){
+        pr_err("[pcie%d] put FullBuf failed.\n ", gSelf_id);
+        return pcie_slave_sendAck(CMD_ACK_ERR, FALSE);
+    }
+
+    ret = pcie_slave_sendAck(CMD_ACK, FALSE);
+    if(ret < 0){
+        pr_err("[pcie%d] send CMD_ACK failed.\n", gSelf_id);
+    }
+    
+    return 0;
+    
+}
+
+static int deQue_cmdBuf(struct pcie_bufHndl *bufHndl, struct pciedev_buf_info *buf_info)
+{
+    char *buf_temp = NULL;
+    u32 buf_size;
+
+    /* wait_event_interruptible_timeout(gPciedev_info.data_wq_h,!pcie_buf_isEmpty(bufHndl), jiffies + 30*HZ); */
+    wait_event_interruptible(gPciedev_info.cmd_wq_h,!pcie_buf_isEmpty(bufHndl));
+    if(pcie_buf_isEmpty(bufHndl))
+    {
+        printk(KERN_DEBUG "%s: wait event timeout.\n", __func__);
+        return -1;
+    }
+
+    buf_size = pcie_buf_getFull(bufHndl, &buf_temp);
+    if(buf_size < 0){
+        pr_debug("[pcie%d] get cmd FullBuf failed.\n", gSelf_id);
+        return -1;
+    }
+
+    debug_print( "%s: GET cmdBuf :ptr-0x%lx size:%u.\n",__func__, (unsigned long )buf_temp, (unsigned int)buf_size);
+    
+    buf_info->buf_kptr = buf_temp;
+    buf_info->buf_ptr_offset = buf_temp - gPciedev_info.recvBufObj.cmd_buf_base;
+    buf_info->buf_size = buf_size;
+    return 0;
+}
+
+static int que_cmdBuf(struct pcie_bufHndl *bufHndl, struct pciedev_buf_info *buf_info)
+{
+    int ret = 0;
+    if (pcie_buf_setEmpty(bufHndl, buf_info->buf_kptr) <0)
+        ret = -1;
+    wake_up(&gPciedev_info.cmd_wq_h);
+    return ret;
+}
+void rc_do_work(unsigned long arg)
+{
+    int i, dev_id;
+    u32 *ep_cmd;
+    atomic_t loop_exit = ATOMIC_INIT(0);
+    while(!atomic_read(loop_exit)){
+        atomic_set(&loop_exit,1);
+        for(i = 0; i < gEp_nums; i++){
+            dev_id = gPciedev_info.ep_info[i].dev_id;
+            if(!dev_id)
+                continue;
+        
+            ep_cmd = (UInt32 *)&gPciedev_info.data_head_ptr->ep_rd_flag[devid_to_index(dev_id)];
+        
+            if((*ep_cmd & SEND_CMD) == SEND_CMD){
+                *ep_cmd &= ~SEND_CMD;
+                put_cmdBuf(&gPciedev_bufObj.cmd_bufHndl, &gPciedev_info.info[i]);
+                atomic_set(&loop_exit, 0);
+            }
+        }
+    }
 }
 #endif
 /**
@@ -147,16 +274,43 @@ static long ti81xx_ep_hlpr_ioctl(struct file *file, unsigned int cmd,
 	}
 	break;
 
-	#ifndef _DM81XX_EXCLUDE_
+#ifndef _DM81XX_EXCLUDE_
 	case TI81XX_RC_SEND_MSI:
 	{
 		unsigned int offset = 0;
 		offset = arg - PCI_NON_PREFETCH_START;
-		__raw_writel(0, pci_mem + offset + 0x54);//MSI_IRQ
+		__raw_writel(0, gLocal_outboud_mem + offset + 0x54);//MSI_IRQ
 	}
 	break;
-	#endif
+#endif
+#ifdef CONFIG_WISCOM
+    case TI81XX_RC_SET_MISCINFO:
+        {
+            struct ti81xx_outb_miscinfo misc_info;
+            struct pciedev_info *pcie_info = NULL;
+            if(!arg){
+                printk(KERN_ERR "IOCTL: RC_SET_MISCINFO error.\n");
+                return -1;
+            }
 
+            if(copy_from_user((char *)&misc_info, (char *)arg, sizeof(struct ti81xx_outb_miscinfo))){
+                printk(KERN_ERR "IOCTL: copy_from_user error.\n");
+                return -1;
+            }
+            if(misc_info.ep_index > PCIE_EP_MAX_NUMBER){
+                printk(KERN_ERR "IOCTL: invalide ep_index.\n");
+                return -1;
+            }
+                
+            pcie_info = &gPciedev_info.ep_info[misc_info.ep_index];
+            pcie_info->dev_id = misc_info.dev_id;
+            pcie_info->recv_cmd = gLocal_outboud_mem + misc_info.cmd_recv_offset;
+            pcie_info->send_cmd = gLocal_outboud_mem + misc_info.cmd_send_offset;
+            memcpy(pcie_info->res_value, misc_info.res_value, sizeof(mic_info.res_value));
+            pcie_info->cmd_head_ptr = gLocal_outboud_mem + pcie_info->res_value[2][0] - PCIE_NON_PREFETCH_START;
+        }
+        break;
+#endif
 	default:
 		ret = -1;
 	}
@@ -391,10 +545,10 @@ static int __init ep_hlpr_init(void)
 		return -1;
 	}
 #ifndef _DM81XX_EXCLUDE_
-	pci_mem = (u32)ioremap_nocache(PCI_NON_PREFETCH_START,
+	gLocal_outboud_mem = (u32)ioremap_nocache(PCI_NON_PREFETCH_START,
 						PCI_NON_PREFETCH_SIZE);
 
-	if (!pci_mem) {
+	if (!gLocal_outboud_mem) {
 		pr_err(DRIVER_NAME ": pci memory remap failed");
 		goto ERROR_POST_REMAP;
 	}
@@ -414,7 +568,34 @@ static int __init ep_hlpr_init(void)
 		printk(KERN_WARNING "KMALLOC failed");
 		goto ERROR_POST_BUFFER;
 	}
-	init_waitqueue_head(&readQ);
+#ifdef CONFIG_WISCOM
+    struct kfifo_buf_create_arg buf_init;
+    char *local_cmdfifo_base = (char *)gLocal_resv_buf + resv_mem_size - cmd_fifo_num*cmd_fifo_size;
+
+    gSelf_id = gPcieDev_id;
+
+    memset(&gPciedev_info, 0, sizeof(gPciedev_info));
+
+    gPciedev_info.data_head_ptr = (struct pciedev_databuf_head *)gLocal_resv_buf;
+    
+    buf_init.numBuf = cmd_fifo_num;
+    for(i = 0; i < cmd_fifo_num; i ++){
+        buf_init.virtAddr[i] = local_cmdfifo_base + cmd_headinfo_size + cmd_fifo_size * i;
+        debug_print(KERN_DEBUG "%s: cmdFifo map virtAddr %d-0x%lx", __func__, i, (unsigned long)buf_init.virtAddr[i]);
+    }
+
+    ret = pcie_buf_init(&gPciedev_info.recvBufObj.cmd_bufHndl, &buf_init);
+    if(ret < 0){
+        pr_err(DRIVER_NAME ":init cmd buffifo failed.\n");
+        pcie_buf_deInit(&gPciedev_info.recvBufObj.cmd_bufHndl);
+        goto ERROR_POST_BUFFER;
+    }
+
+    init_waitqueue_head(&gPciedev_info.cmd_wq_h);
+        
+#endif
+
+    init_waitqueue_head(&readQ);
 	sema_init(&sem_poll, 1);
 	pr_info(DRIVER_NAME ":Initialization complete load successful [%s %s]\n", __TIME__, __DATE__);
 	msi_on(device_ep);
@@ -426,10 +607,10 @@ ERROR_POST_BUFFER:
 	class_destroy(ti81xx_ep_hlpr_class);
 
 ERROR_POST_CLASS:
-	#ifndef _DM81XX_EXCLUDE_
-	iounmap((void *)pci_mem);
+#ifndef _DM81XX_EXCLUDE_
+	iounmap((void *)gLocal_outboud_mem);
 ERROR_POST_REMAP:
-	#endif
+#endif
 	cdev_del(&ti81xx_ep_hlpr_cdev);
 	unregister_chrdev_region(ti81xx_ep_hlpr_dev, DEVICENO);
 	return -1;
@@ -443,13 +624,16 @@ ERROR_POST_REMAP:
 
 void ep_hlpr_exit(void)
 {
+#ifdef CONFIG_WISCOM
+    pcie_buf_deInit(&gPciedev_info.cmd_bufHndl);
+#endif
 	kfree(mgmt_area_start);
 	msi_off(device_ep);
 	device_destroy(ti81xx_ep_hlpr_class, ti81xx_ep_hlpr_dev);
 	class_destroy(ti81xx_ep_hlpr_class);
-	#ifndef _DM81XX_EXCLUDE_
-	iounmap((void *)pci_mem);
-	#endif
+#ifndef _DM81XX_EXCLUDE_
+	iounmap((void *)gLocal_outboud_mem);
+#endif
 	cdev_del(&ti81xx_ep_hlpr_cdev);
 	unregister_chrdev_region(ti81xx_ep_hlpr_dev, DEVICENO);
 

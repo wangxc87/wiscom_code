@@ -28,6 +28,6 @@ clean:
 install:
 #	cp $(TARGET) $(EXE_INSTALL_DIR)/
 	cp $(TARGET) $(ROOTFS_DIR)/usr/bin/hw_test
-	sudo chmod +x $(TARGET_SH)
+	#sudo chmod +x $(TARGET_SH)
 	cp $(TARGET_SH) $(ROOTFS_DIR)/usr/bin/
 

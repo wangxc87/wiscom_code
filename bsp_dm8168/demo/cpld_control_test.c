@@ -17,7 +17,7 @@ int usage(void)
 }
 int main(int argc,char **argv)
 {
-    Int32 ret;
+    /* Int32 ret; */
     Int32 debug_level ;
     Int32 done = 10;
     UInt32 senor_value;
@@ -26,7 +26,7 @@ int main(int argc,char **argv)
     UInt32 enHwWatchdog = 0;
     char *optstring = "p:t:l:sh";
     int opt;    
-    Int32 startup_flag = 0;
+    /* Int32 startup_flag = 0; */
     if(argc < 2)
         usage();
 

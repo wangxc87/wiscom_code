@@ -15,15 +15,18 @@
 
 #ifndef __TI81XX_EP_HLPR__
 #define __TI81XX_EP_HLPR__
-
+#include "pcie_common.h"
 #undef u32
 #define u32 unsigned int
+
 
 /* ioctls defined for driver as well as user space */
 #define TI81XX_RC_START_ADDR_AREA	_IOWR('P', 1, struct ti81xx_start_addr_area)
 #ifndef _DM81XX_EXCLUDE_
 #define TI81XX_RC_SEND_MSI		_IOWR('P', 2, unsigned int)
 #endif
+
+#define TI81XX_RC_SET_MISCINFO  0
 
 /**
  * ti81xx_start_addr_area: dedicated area's start address realated information
@@ -37,6 +40,14 @@
 struct ti81xx_start_addr_area {
 	u32 start_addr_virt;
 	u32 start_addr_phy;
+};
+
+struct ti81xx_outb_miscinfo {
+    int ep_index;
+    int dev_id;
+    int cmd_recv_offset;
+    int cmd_send_offset;
+    u32 res_value[6][2];
 };
 
 #endif

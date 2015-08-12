@@ -3,21 +3,15 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <signal.h>
 #include <fcntl.h>
-#include <ctype.h>
-#include <termios.h>
-#include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
-#include <poll.h>
-#include <semaphore.h>
-#include <drivers/char/pcie_common.h>
-#include <drivers/char/ti81xx_pcie_epdrv.h>
+#include <linux/ti81xx_pcie_epdrv.h>
+#include <unistd.h>
 
 #include "pcie_std.h"
 #include "ti81xx_ep.h"
-#include "debug_msg.h"
+//#include "debug_msg.h"
 #include "pcie_common.h"
 
 #define PCIE_SLAVE_DEVICE "/dev/ti81xx_pcie_ep"
@@ -32,14 +26,7 @@ static Int32 gPciedev_slave_fd = -1;
 static struct pciedev_info gPciedev_slave_info;
 static struct ti81xx_pcie_mem_info gPciedev_slave_rsv_mem; //start_addr;
 
-static volatile struct mgmt_info *gPciedev_mgmt_infoPtr;
-
-static volatile  struct pciedev_databuf_head *gDatabuf_headPtr = NULL;
-
-static sem_t gSem_data;
-
 static Int32 pcie_slave_sendAck(UInt32 cmd, Int32 en_int);
-
 
 Int32 pcie_slave_getInfo(UInt32 timeout)
 {
@@ -71,10 +58,9 @@ Int32 pcie_slave_getInfo(UInt32 timeout)
             (off_t) gPciedev_slave_rsv_mem.base);
     if ((void *) - 1 == (void *) mapped_resv_buffer) {
         err_print("pcie slave mapping dedicated memory fail\n");
-		/* close(gPciedev_slave_fd); */
         return -1;
     }
-    gPciedev_mgmt_infoPtr = (struct mgmt_info *) mapped_resv_buffer;
+    //    gPciedev_mgmt_infoPtr = (struct mgmt_info *) mapped_resv_buffer;
     memset(&gPciedev_slave_info, 0, sizeof (struct pciedev_info));
     gPciedev_slave_info.dev_id = gSelf_id;
     gPciedev_slave_info.mgmt_buf_base = mapped_resv_buffer;
@@ -89,7 +75,6 @@ Int32 pcie_slave_getInfo(UInt32 timeout)
     }
 
     gPciedev_slave_info.data_buf_base = (char *) mapped_pci;
-
 
     return 0;
 
@@ -133,7 +118,6 @@ Int32 pcie_slave_init(struct pciedev_init_config *config)
         err_print("Open Pciedev slave %s Error.\n", PCIE_SLAVE_DEVICE);
         return -1;
     }
-    sem_init(&gSem_data, 0, 0);   
 
     if(en_clearBuf){
         if(ioctl(gPciedev_slave_fd, TI81XX_RESET_DATAQUE, NULL) < 0)
@@ -161,8 +145,6 @@ Int32 pcie_slave_init(struct pciedev_init_config *config)
         goto init_err_exit;
     }    
     gPciedev_slave_info.data_buf_size_max = buf_info.buf_size;
-    gDatabuf_headPtr = (struct pciedev_databuf_head *) gPciedev_slave_info.data_buf_base;
- 
 
     pcieDev_lockInit(&gPciedev_slave_info);
 
@@ -179,7 +161,7 @@ init_err_exit:
 static Int32 pcie_slave_sendAck(UInt32 cmd, Int32 en_int)
 {
     int ret = 0;
-#if 1
+
     struct ti81xx_ack_info ack_info;
     ack_info.cmd = cmd;
     ack_info.en_int = en_int;
@@ -187,19 +169,6 @@ static Int32 pcie_slave_sendAck(UInt32 cmd, Int32 en_int)
     if( ret < 0){
         return -1;
     }
-#else
-    /* gDatabuf_headPtr->ep_rd_flag[devid_to_index(gSelf_id)] |= cmd; */
-    gPciedev_mgmt_infoPtr->cmd |= cmd;
-    
-    if(en_int){
-        //发送中断通知
-        ret = ioctl(gPciedev_slave_fd, TI81XX_SEND_MSI, NULL);
-        if( ret < 0){
-            //        err_print("Send msi Error.\n");
-            return -1;
-        }
-    }
-#endif
     return 0;    
 }
 
@@ -304,8 +273,6 @@ Int32 pcie_slave_recvCmd(char *buf, int *from_id, struct timeval *tv)
 Int32 pcie_slave_sendCmd(char *buf, Int32 to_id, UInt32 buf_size, struct timeval *tv)
 {
     char *send_buf = NULL;
-    volatile int *cmd_ack = (volatile *)&gPciedev_mgmt_infoPtr->cmd;
-    UInt32 timeout;
     Int32 *buf_sizep, *buf_idp;
     Int32 ret = 0;
     struct ti81xx_ack_info ack_info;
@@ -334,7 +301,6 @@ Int32 pcie_slave_sendCmd(char *buf, Int32 to_id, UInt32 buf_size, struct timeval
         return -1;
     }
     
-#if 1
    if(!tv){
        ack_info.tv_sec = 0xffffff;
    } else{
@@ -353,46 +319,7 @@ Int32 pcie_slave_sendCmd(char *buf, Int32 to_id, UInt32 buf_size, struct timeval
 
     if(!ack_info.ack_status)
         return -1;
-    
-    return 0;
 
-#else
-    if(!tv)
-        timeout = ~0;
-    else
-        timeout = tv->tv_sec * 5000 + tv->tv_usec/200;
-    if(timeout == 0)
-        timeout = 5000*DEFAULT_SEND_TIMEOUT;    
-
-    ack_info.tv_sec = 2;
-
-    while(timeout){
-
-    ret = ioctl(gPciedev_slave_fd, TI81XX_WAIT_CMD_ACK, &ack_info);
-    if( ret < 0){
-        err_print("ioctl :send cmd error.\n");
-        return -1;
-    }
-    if(ack_info.ack_status)
-        break;
-    
-        /* if(*cmd_ack & CMD_ACK){ */
-        /*     *cmd_ack &= ~CMD_ACK; */
-        /*     break; */
-        /* } */
-            
-        
-        usleep(200);
-        timeout --;
-        if(!timeout){
-            err_print("ep send cmd timeout, failed.\n");
-            return -1;
-        }
-
-        if((timeout % 50) == 0)
-            debug_print("waiting ack [%d]...\n", timeout);
-    }
-#endif
     return 0;
 }
 
@@ -419,7 +346,6 @@ Int32 pcie_slave_deInit(void)
 
     if (gPciedev_slave_fd < 0)
         return 0;
- //   gSinal_handler_exit = 1;
 
     pcieDev_lock(&gPciedev_slave_info);
 
@@ -431,7 +357,7 @@ Int32 pcie_slave_deInit(void)
     munmap(gPciedev_slave_info.data_buf_base, PCIE_NON_PREFETCH_SIZE);
     gPciedev_slave_info.mgmt_buf_base = NULL;
     gPciedev_slave_info.data_buf_base= NULL;
-    gPciedev_mgmt_infoPtr = NULL;
+    //    gPciedev_mgmt_infoPtr = NULL;
     pcieDev_unlock(&gPciedev_slave_info);
     
     pcieDev_lockDeInit(&gPciedev_slave_info);

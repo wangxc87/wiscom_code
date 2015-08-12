@@ -5,7 +5,7 @@
 
 int main(int argc,char **argv)
 {
-    Int32 ret;
+    /* Int32 ret; */
     Int32 debug_level ;
     Int32 done = 10;
     Int32 sensor_in,alarm_out;

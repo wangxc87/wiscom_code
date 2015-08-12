@@ -1,5 +1,5 @@
 
-CFLAGS = -I $(KERNSRC)
+CFLAGS = -I $(KERNSRC)/include 
 
 CROSS_COMPILE = arm-arago-linux-gnueabi-
 
@@ -23,7 +23,7 @@ ifneq ($(edma),)
 CFLAGS += -DEDMA_TRANSMISSION
 endif
 
-CFLAGS += -O2 -mcpu=cortex-a8 -mfpu=neon -mfloat-abi=softfp
+CFLAGS += -O2 -mcpu=cortex-a8 -mfpu=neon -mfloat-abi=softfp -Wall
 
 all: build_all
 

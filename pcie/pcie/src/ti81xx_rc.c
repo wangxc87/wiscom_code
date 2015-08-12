@@ -4,22 +4,12 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <ctype.h>
-#include <termios.h>
-#include <sys/types.h>
 #include <sys/mman.h>
-#include <linux/ioctl.h>
 #include <sys/ioctl.h>
 #include <time.h>
-#include <poll.h>
 #include <string.h>
-#include <drivers/char/ti81xx_pcie_rcdrv.h>
-#include <drivers/char/pcie_common.h>
-#include <signal.h>
+#include <linux/ti81xx_pcie_rcdrv.h>
 
-
-#include "pcie_std.h"
-#include "debug_msg.h"
 #include "ti81xx_rc.h"
 #include "pcie_common.h"
 
@@ -103,26 +93,8 @@ Int32 get_pcie_subsys_info(void)
         return -1;
     }
 
-    /* for(i = 0; i < gEp_nums; i ++){ */
-    /*     //mapping bar 2 */
-    /*     gPciedev_info[i].mgmt_buf_base = mmap(0, gPciedev_info[i].res_value[2][1], */
-    /*                       PROT_READ | PROT_WRITE, MAP_SHARED, */
-    /*                       gPciedev_master_fd, (off_t) gPciedev_info[i].res_value[2][0]); */
-    /*     if((void *)-1 == (void *)gPciedev_info[i].mgmt_buf_base){ */
-    /*         err_print("Mmap Ep-%d Bar 0x%x memory Error.\n", */
-    /*                   i, gPciedev_info[i].res_value[2][0]); */
-    /*         goto error_exit; */
-    /*     } */
-    /*     gMgmt_infoPtr[i] = (struct mgmt_info *)(gPciedev_info[i].mgmt_buf_base); */
-        
-    /* } */
     return 0;
 
- /* error_exit: */
- /*    for(j = 0; j < i; j ++){ */
- /*        munmap(gPciedev_info[j].mgmt_buf_base, gPciedev_info[j].res_value[2][1]); */
- /*    } */
- /*    return -1; */
 }
 
 
@@ -233,8 +205,7 @@ Int32 pcieRc_init(struct pciedev_init_config *config)
 
 static Int32 pcieRc_sendAck(Int32 ep_id, UInt32 cmd, Int32 en_int)
 {
-    int ret;
-    int msi_addr,i=0;
+    int i=0;
     struct ti81xx_ack_info ack_info;
     while(i < PCIE_EP_MAX_NUMBER){
         if(gPciedev_info[i].dev_id == ep_id)
@@ -245,7 +216,6 @@ static Int32 pcieRc_sendAck(Int32 ep_id, UInt32 cmd, Int32 en_int)
             return -1;
         }
     }
-#if 1
     memset((char *)&ack_info, 0, sizeof(struct ti81xx_ack_info));
     ack_info.ep_id = ep_id;
     ack_info.cmd = cmd;
@@ -254,19 +224,6 @@ static Int32 pcieRc_sendAck(Int32 ep_id, UInt32 cmd, Int32 en_int)
         debug_print("RC send ack Error \n");
         return -1;
     }
-    return 0;
-#else
-    gMgmt_infoPtr[i]->cmd |= cmd;
-
-    if(en_int){
-        msi_addr = gPciedev_info[i].res_value[0][0];
-        ret = ioctl(gPciedev_master_fd, TI81XX_RC_SEND_MSI, msi_addr);
-        if(ret < 0){
-            debug_print("RC send msi Error, addr-0x%x\n", msi_addr);
-            return -1;
-        }
-    }
-#endif
     return 0;
 }
 
@@ -298,7 +255,7 @@ Int32 pcieRc_sendData(char *data_ptr, UInt32 buf_size, UInt32 pciedev_id, Int32 
     if(time_out == 0)
         time_out = 5000*DEFAULT_SEND_TIMEOUT;
      
-    memcpy_neon(gDataBuf_recvSend, data_ptr, buf_size);
+    memcpy_neon((char *)gDataBuf_recvSend, (char *)data_ptr, buf_size);
 
     gDatabuf_headPtr->data_from_id = RC_ID;
     gDatabuf_headPtr->frame_id = frame_count;
@@ -307,9 +264,6 @@ Int32 pcieRc_sendData(char *data_ptr, UInt32 buf_size, UInt32 pciedev_id, Int32 
     gDatabuf_headPtr->buf_channal = buf_channel;
     gDatabuf_headPtr->sync_mode = sync_mode;
     
-    /* for(i = 0; i < PCIE_EP_MAX_NUMBER; i ++) */
-    /*     gDatabuf_headPtr->ep_rd_flag[i] &= ~DATA_ACK;     */
-
     if(pciedev_id == EP_ID_ALL){
         gDatabuf_headPtr->data_to_id = EP_ID_ALL;
         gDatabuf_headPtr->wr_index = gEp_nums ;
@@ -431,18 +385,9 @@ Int32 pcieRc_sendData(char *data_ptr, UInt32 buf_size, UInt32 pciedev_id, Int32 
 
 Int32 pcieRc_deInit(void)
 {
-    Int32 i = 0;
-    
     if(gPciedev_master_fd < 0)
         return 0;
     
-
-    /* for(i = 0; i < gEp_nums; i++){ */
-
-    /*     memset(gMgmt_infoPtr[i], 0, sizeof(struct mgmt_info)); */
-    /*     munmap(gPciedev_info[i].mgmt_buf_base, gPciedev_info[i].res_value[2][1]); */
-    /* } */
-
     munmap(gDataBuf_base, RC_RESV_MEM_SIZE_DEFAULT);
     
     close(gPciedev_master_fd);
@@ -509,10 +454,7 @@ Int32 pcieRc_recvCmd(char *buf,int *from_id, struct timeval *tv)
 Int32 pcieRc_sendCmd(char *buf, Int32 to_id, UInt32 buf_size, struct timeval *tv)
 {
     Int32 i = 0;
-    UInt32 timeout;
-    Int32 *buf_sizep, *buf_idp;
     char *send_buf = NULL;
-    volatile Int32 *ep_cmd = NULL;
     Int32 ret = 0;
     UInt32 cmd_head[2];
     struct ti81xx_ack_info ack_info;
@@ -575,6 +517,7 @@ Int32 pcieRc_sendCmd(char *buf, Int32 to_id, UInt32 buf_size, struct timeval *tv
 
     return 0;
 #else
+    UInt32 timeout;
     if(!tv)
         timeout = ~0;
     else

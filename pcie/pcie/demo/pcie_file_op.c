@@ -1,25 +1,18 @@
 #include <stdio.h>
 #include <string.h>
 #include <getopt.h>
-
-#include "pcie_std.h"
+#include <unistd.h>
 #include "pcie_common.h"
-#include "debug_msg.h"
 #include "osa_pcie.h"
-#include <drivers/char/pcie_common.h>
-//int gDebug_enable = 0;
-
-/* #define debug_print(fmt, ...) \ */
-/* 	do { if (gDebug_enable) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \ */
-/* 				__LINE__, __func__, ##__VA_ARGS__); } while (0) */
 
 #define OPER_SEND 1
 #define OPER_SAVE  2
 #define BUF_SIZE 1024
-char buf[BUF_SIZE];
 #define PCIE_DATA_BUF_SIZE (1<<20)
 #define HEAD_DATA 0x00
 #define HEAD_END  0xff
+
+char buf[BUF_SIZE];
 
 static struct pciedev_init_config noClear_config;
 int usage(char *string)
@@ -41,7 +34,6 @@ int send_file(char *file_name, int to_id)
     int ret;
     FILE *filep;
     unsigned int file_size = 0;
-    char *data_bufPtr = NULL;
     int status,i;
 
     filep = fopen(file_name, "r");
@@ -49,7 +41,7 @@ int send_file(char *file_name, int to_id)
         printf("open %s error.\n", file_name);
         return -1;
     }
-    printf("open %s ok.\n", file_name);
+    printf("open <%s> ok.\n", file_name);
     
     ret = OSA_pcieInit(&noClear_config);
     if(ret < 0){
@@ -63,26 +55,31 @@ int send_file(char *file_name, int to_id)
     do {
         *buf = HEAD_DATA;
         status = fread(buf+1, 1, BUF_SIZE-1, filep);
-        debug_print("send %d-%d.\n",i++, status+1);
+        debug_print("send %d-%d.\n",i, status+1);
         ret = OSA_pcieSendData(to_id, buf, status + 1, 0, DATA_SEND_SYNC_MODE, NULL);
         if(ret < 0){
-            printf("Pcie send data %llu Error.\n", i);
+            printf("Pcie send data %d Error.\n", i);
             ret = -1;
             goto exit0;
         }
         file_size += status;
-        usleep(10*1000);
+        usleep(1*1000);
+
+        if((i%50) == 0)
+            printf("%s: send %d-%d .\n", __func__, i, status);
+        i ++;
+
     } while(!feof(filep)&&(status == (BUF_SIZE -1)));
     
     *buf = HEAD_END;
     ret = OSA_pcieSendData(to_id, buf, 4, 0, DATA_SEND_SYNC_MODE, NULL);
     if(ret < 0){
-        printf("Pcie send data %llu Error.\n", i);
+        printf("Pcie send data %d Error.\n", i);
         ret = -1;
         goto exit0;
     }
     
-    printf("file %s send.Total size %u\n", file_name, file_size);
+    printf("file <%s> send.Total size %u\n", file_name, file_size);
 
  exit0:
     OSA_pcieDeInit();
@@ -108,7 +105,6 @@ int recv_file(char *file_name)
     ret = OSA_pcieInit(&noClear_config);//pcie_slave_init();
     if(ret < 0){
         printf("pcie slave init Error.\n");
-        fclose(filep);
         return -1;
     }
     printf("pci slave init successful.\n");
@@ -132,16 +128,22 @@ int recv_file(char *file_name)
         if(*data_buf == HEAD_END)
             break;
 
-        debug_print("%s: recieve %d-%d.\n",__func__, i++,status-1);
+        debug_print("%s: recieve %d-%d.\n",__func__, i,status-1);
         ret = fwrite(data_buf+1, 1, status-1, filep);
         if(ret <0){
             printf("write file %s error.\n", file_name);
             goto exit0;
         }
         file_size += status-1;
+
+        if((i%50) == 0)
+            printf("%s: received %d-%d .\n", __func__, i, status-1);
+
+        i ++;
+
     }while(1);
 
-    printf("file %s recieved. Total size %u\n", file_name, file_size);
+    printf("file <%s> recieved. Total size %u\n", file_name, file_size);
 
  exit0:
     OSA_pcieDeInit();

@@ -40,8 +40,8 @@ extern "C" {
 #define UInt16   unsigned short
 #define Int32    int
 #define UInt32   unsigned int
-#define Int64    long
-#define UInt64   unsigned long
+#define Int64    long long
+#define UInt64   unsigned long long
 #define Float    float
 #define Double   double
     

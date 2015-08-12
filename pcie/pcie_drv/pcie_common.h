@@ -17,8 +17,8 @@
 #define PCIE_INVALID_ID  (0)
 
 #define PCIE_RC_RESERVE_MEM_SIZE ( 4 * 1024 * 1024)
-#define CMD_BUF_SIZE (128)
-#define CMD_BUF_RESERVE_SIZE (16)
+//#define CMD_BUF_SIZE (128)
+/* #define CMD_BUF_RESERVE_SIZE (16) */
 
 #define RSVMEM_CMD_BUF_SIZE (2*1024*1024)
 #define RSVMEM_DATA_BUF_OFFSET (RSVMEM_CMD_BUF_SIZE)
@@ -26,8 +26,8 @@
 //fifo define
 #define  DATA_BUF_SIZE (1024*1024)
 #define  DATA_BUF_FIFOS 16
-#define  CMD_BUF_SIZE (1*1024)
-#define  CMD_BUF_FIFOS 16
+#define  CMD_BUF_SIZE (2*1024)
+#define  CMD_BUF_FIFOS 64
 
 
 
@@ -112,6 +112,8 @@ struct pciedev_info {
     struct pciedev_databuf_head *data_head_ptr;
     char *send_data;
     char *recv_data;
+    int cmd_buf_size_max;
+    int data_buf_size_max;    
 };
 
 
@@ -122,32 +124,5 @@ struct pciedev_buf_info {
     u32 buf_ptr_offset;
     u32 buf_size;
 };
-
-#if 0
-extern void *memcpy_neon(void *, const void *, size_t);
-extern int get_selfId(void);
-
-
-inline static int pcieDev_lockInit(struct pciedev_info *pciedev)
-{
-    sem_init(&pciedev->dev_lock, 0, 1);
-    return 0;
-}
-inline static int pcieDev_lockDeInit(struct pciedev_info *pciedev)
-{
-    return 0;
-}
-inline static int pcieDev_lock(struct pciedev_info *pciedev)
-{
-    sem_wait(&pciedev->dev_lock);
-    return 0;
-}
-
-inline static int pcieDev_unlock(struct pciedev_info *pciedev)
-{
-    sem_post(&pciedev->dev_lock);
-    return 0;
-}
-#endif
 
 #endif
